@@ -1,5 +1,12 @@
-import { FormEvent, ReactNode, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, ReactNode, useEffect, useState } from "react";
 import "./LEVEL-panel-administrador.css";
+import "./LEVEL-responsive-ajustes.css";
+import "./LEVEL-portadas-detalles-fix.css";
+import "./LEVEL-portadas-detalles-visual.css";
+import "./LEVEL-menu-movil.css";
+import "./LEVEL-detail-polish.css";
+import "./LEVEL-detail-overlay.css";
+import "./LEVEL-seller-image-preview.css";
 
 type View = "login" | "register" | "home" | "details" | "profile" | "checkout" | "invoice" | "seller" | "admin";
 
@@ -12,6 +19,8 @@ type Game = {
   price: number;
   stock: number;
   description: string;
+  studio?: string;
+  tagline?: string;
   isSellerProduct?: boolean;
 };
 
@@ -52,7 +61,7 @@ const games: Game[] = [
 ];
 
 function Icon({ name, size = 20, className = "" }: {
-  name: "search" | "star" | "arrow" | "plus" | "gamepad" | "grid" | "logout" | "cart";
+  name: "search" | "star" | "arrow" | "plus" | "gamepad" | "grid" | "logout" | "cart" | "image-plus" | "eye";
   size?: number;
   className?: string;
 }) {
@@ -65,6 +74,8 @@ function Icon({ name, size = 20, className = "" }: {
     grid: <><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></>,
     logout: <><path d="M10 5H5v14h5" /><path d="M13 8l4 4-4 4M8 12h9" /></>,
     cart: <><circle cx="9" cy="20" r="1" /><circle cx="19" cy="20" r="1" /><path d="M2 3h2l2.4 12.2a2 2 0 0 0 2 1.6h9.8a2 2 0 0 0 2-1.6L22 7H5" /></>,
+    "image-plus": <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9" r="1.5" /><path d="m21 15-5-5L5 20M16 4v6M13 7h6" /></>,
+    eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></>,
   };
 
   return (
@@ -92,15 +103,22 @@ function Navbar({
   cartCount?: number;
   onOpenCart?: () => void;
 }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  function navigate(view: View) {
+    setView(view);
+    setMobileMenuOpen(false);
+  }
+
   return (
     <header className="navbar">
       <div className="nav-inner">
-        <Logo onClick={() => setView("home")} />
+        <Logo onClick={() => navigate("home")} />
         <nav className="nav-links" aria-label="Navegación principal">
-          <button onClick={() => setView("home")} type="button">Explorar</button>
-          <button onClick={() => setView("profile")} type="button">Mi biblioteca</button>
-          <button onClick={() => setView("seller")} type="button">Vendedor</button>
-          <button onClick={() => setView("admin")} type="button">Admin</button>
+          <button onClick={() => navigate("home")} type="button">Explorar</button>
+          <button onClick={() => navigate("profile")} type="button">Mi biblioteca</button>
+          <button onClick={() => navigate("seller")} type="button">Vendedor</button>
+          <button onClick={() => navigate("admin")} type="button">Admin</button>
         </nav>
         <label className="search-box">
           <Icon name="search" size={18} />
@@ -111,10 +129,30 @@ function Navbar({
           <Icon name="cart" size={19} />
           {(cartCount ?? 0) > 0 && <span className="cart-badge">{cartCount}</span>}
         </button>
-        <button className="avatar-button" onClick={() => setView("profile")} type="button" aria-label="Abrir perfil">
+        <button className="avatar-button" onClick={() => navigate("profile")} type="button" aria-label="Abrir perfil">
           <span>LM</span><i aria-hidden="true" />
         </button>
+        <button
+          className={`mobile-menu-toggle ${mobileMenuOpen ? "is-open" : ""}`}
+          onClick={() => setMobileMenuOpen((open) => !open)}
+          type="button"
+          aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
+          aria-expanded={mobileMenuOpen}
+          aria-controls="mobile-navigation"
+        >
+          <span />
+          <span />
+          <span />
+        </button>
       </div>
+      {mobileMenuOpen && (
+        <nav className="mobile-navigation" id="mobile-navigation" aria-label="Navegación móvil">
+          <button onClick={() => navigate("home")} type="button">Explorar</button>
+          <button onClick={() => navigate("profile")} type="button">Mi biblioteca</button>
+          <button onClick={() => navigate("seller")} type="button">Vendedor</button>
+          <button onClick={() => navigate("admin")} type="button">Administrador</button>
+        </nav>
+      )}
     </header>
   );
 }
@@ -194,8 +232,9 @@ function GameCard({ game, onClick, onAddToCart }: {
   );
 }
 
-function Home({ setView, search, setSearch, cartCount, onOpenCart, onAddToCart, catalogGames }: {
+function Home({ setView, setSelectedGameId, search, setSearch, cartCount, onOpenCart, onAddToCart, catalogGames }: {
   setView: (view: View) => void;
+  setSelectedGameId: (id: number) => void;
   search: string;
   setSearch: (value: string) => void;
   cartCount: number;
@@ -216,7 +255,7 @@ function Home({ setView, search, setSearch, cartCount, onOpenCart, onAddToCart, 
             <span className="feature-label"><i /> DESTACADO DE LA SEMANA</span>
             <h1>NEON ECLIPSE</h1>
             <p>La ciudad nunca duerme. Tú tampoco deberías.</p>
-            <button className="primary-button" onClick={() => setView("details")} type="button">Ver más <Icon name="arrow" size={18} /></button>
+            <button className="primary-button" onClick={() => { const featured = catalogGames.find((item) => item.title.toLowerCase() === "neon eclipse") ?? catalogGames[0]; if (featured) setSelectedGameId(featured.id); setView("details"); }} type="button">Ver más <Icon name="arrow" size={18} /></button>
           </div>
           <div className="hero-meta"><span>RPG</span><span>Mundo abierto</span><span>2025</span></div>
         </section>
@@ -229,7 +268,7 @@ function Home({ setView, search, setSearch, cartCount, onOpenCart, onAddToCart, 
           {visibleGames.length ? (
             <div className="game-grid">
               {visibleGames.map((game) => (
-                <GameCard game={game} key={game.id} onClick={() => setView("details")} onAddToCart={() => onAddToCart(game)} />
+                <GameCard game={game} key={game.id} onClick={() => { setSelectedGameId(game.id); setView("details"); }} onAddToCart={() => onAddToCart(game)} />
               ))}
             </div>
           ) : (
@@ -241,8 +280,9 @@ function Home({ setView, search, setSearch, cartCount, onOpenCart, onAddToCart, 
   );
 }
 
-function Details({ setView, search, setSearch, cartCount, onOpenCart, onAddToCart, catalogGames }: {
+function Details({ setView, selectedGameId, search, setSearch, cartCount, onOpenCart, onAddToCart, catalogGames }: {
   setView: (view: View) => void;
+  selectedGameId: number | null;
   search: string;
   setSearch: (value: string) => void;
   cartCount: number;
@@ -251,24 +291,30 @@ function Details({ setView, search, setSearch, cartCount, onOpenCart, onAddToCar
   catalogGames: Game[];
 }) {
   const [saved, setSaved] = useState(false);
-  const game = catalogGames[0] ?? games[0];
+  const game = catalogGames.find((item) => item.id === selectedGameId) ?? catalogGames[0] ?? games[0];
 
   return (
     <div className="app-shell">
       <Navbar setView={setView} search={search} setSearch={setSearch} cartCount={cartCount} onOpenCart={onOpenCart} />
-      <main>
-        <section className="detail-banner"><img src={game.image} alt="Ciudad futurista de Neon Eclipse" /><div /></section>
+      <main className="detail-page-main">
+        <section className="detail-banner">
+          <img className="detail-banner-backdrop" src={game.image} alt="" aria-hidden="true" />
+          <img className="detail-banner-image" src={game.image} alt={`Imagen principal de ${game.title}`} />
+          <button className="back-button detail-back-button" onClick={() => setView("home")} type="button">
+            <span aria-hidden="true">←</span> Volver al catálogo
+          </button>
+          <div className="detail-banner-gradient" />
+        </section>
         <section className="detail-container">
-          <button className="back-button" onClick={() => setView("home")} type="button"><span>←</span> Volver al catálogo</button>
           <div className="detail-layout">
             <div className="detail-cover">
               <img src={game.image} alt={`Portada de ${game.title}`} />
               <div className="cover-score"><strong>{game.rating}</strong><span>EXCELENTE</span></div>
             </div>
             <article className="detail-copy">
-              <span className="eyebrow">NIGHTWAVE STUDIOS • 2025</span>
+              <span className="eyebrow">{game.studio?.trim() || "ESTUDIO INDEPENDIENTE"}{game.studio?.trim() ? "" : " • 2026"}</span>
               <h1>{game.title.toUpperCase()}</h1>
-              <p className="detail-tagline">El futuro tiene memoria.</p>
+              <p className="detail-tagline">{game.tagline?.trim() || "Una nueva aventura te espera."}</p>
               <p className="synopsis">{game.description} Sumérgete en Nova Prime, una metrópolis donde cada decisión altera el equilibrio entre humanos y máquinas.</p>
               <div className="detail-block"><span>PLATAFORMAS</span><div className="tags"><b>PC</b><b>PS5</b><b>XBOX SERIES</b></div></div>
               <div className="detail-block"><span>GÉNEROS</span><p>{game.genre}</p></div>
@@ -287,11 +333,13 @@ function Details({ setView, search, setSearch, cartCount, onOpenCart, onAddToCar
 
 function Profile({
   setView,
+  setSelectedGameId,
   search,
   setSearch,
   purchasedGames,
 }: {
   setView: (view: View) => void;
+  setSelectedGameId: (id: number) => void;
   search: string;
   setSearch: (value: string) => void;
   purchasedGames: Game[];
@@ -349,7 +397,7 @@ function Profile({
                 <button
                   className="library-item"
                   key={game.id}
-                  onClick={() => setView("details")}
+                  onClick={() => { setSelectedGameId(game.id); setView("details"); }}
                   type="button"
                 >
                   <img src={game.image} alt={`Portada de ${game.title}`} />
@@ -404,26 +452,87 @@ function SellerDashboard({
 }) {
   const emptyForm = {
     title: "",
+    studio: "",
+    tagline: "",
     genre: "",
     price: "",
     stock: "",
     description: "",
+    image: "",
   };
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState("");
+  const [imageError, setImageError] = useState("");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [fileInputKey, setFileInputKey] = useState(0);
+
+  const previewGame: Game = {
+    id: editingId ?? -1,
+    title: form.title.trim() || "Nombre del videojuego",
+    studio: form.studio.trim() || "Nombre del estudio",
+    tagline: form.tagline.trim() || "Frase promocional del videojuego",
+    genre: form.genre.trim() || "Género del videojuego",
+    price: Number(form.price) > 0 ? Number(form.price) : 0,
+    stock: Number.isInteger(Number(form.stock)) && Number(form.stock) >= 0 ? Number(form.stock) : 0,
+    description: form.description.trim() || "Aquí aparecerá la descripción del videojuego.",
+    rating: "9.0",
+    image: form.image,
+    isSellerProduct: true,
+  };
+
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImageError("");
+    if (!file.type.startsWith("image/")) {
+      setImageError("Selecciona un archivo de imagen válido.");
+      event.target.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setImageError("La imagen no debe superar los 5 MB.");
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setForm((previous) => ({ ...previous, image: reader.result as string }));
+      } else {
+        setImageError("No se pudo cargar la imagen. Inténtalo de nuevo.");
+      }
+    };
+    reader.onerror = () => setImageError("Ocurrió un error al leer la imagen.");
+    reader.readAsDataURL(file);
+  }
+
+  function resetForm() {
+    setForm(emptyForm);
+    setEditingId(null);
+    setError("");
+    setImageError("");
+    setPreviewOpen(false);
+    setFileInputKey((key) => key + 1);
+  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
     const price = Number(form.price);
     const stock = Number(form.stock);
 
-    if (!form.title.trim() || !form.genre.trim() || !form.description.trim()) {
-      setError("Completa todos los campos.");
+    if (!form.title.trim() || !form.studio.trim() || !form.tagline.trim() || !form.genre.trim() || !form.description.trim()) {
+      setError("Completa todos los campos, incluido el estudio y la frase promocional.");
       return;
     }
     if (!Number.isFinite(price) || price <= 0 || !Number.isInteger(stock) || stock < 0) {
       setError("Ingresa un precio válido y un stock entero igual o mayor que cero.");
+      return;
+    }
+    if (!form.image) {
+      setError("Debes subir una imagen del videojuego.");
       return;
     }
 
@@ -433,46 +542,53 @@ function SellerDashboard({
       onUpdate({
         ...current,
         title: form.title.trim(),
+        studio: form.studio.trim(),
+        tagline: form.tagline.trim(),
         genre: form.genre.trim(),
         price,
         stock,
         description: form.description.trim(),
+        image: form.image,
       });
     } else {
       onAdd({
         title: form.title.trim(),
+        studio: form.studio.trim(),
+        tagline: form.tagline.trim(),
         genre: form.genre.trim(),
         price,
         stock,
         description: form.description.trim(),
         rating: "—",
-        image: images.hero,
+        image: form.image,
         isSellerProduct: true,
       });
     }
 
-    setForm(emptyForm);
-    setEditingId(null);
-    setError("");
+    resetForm();
   }
 
   function startEdit(product: Game) {
     setEditingId(product.id);
     setForm({
       title: product.title,
+      studio: product.studio ?? "",
+      tagline: product.tagline ?? "",
       genre: product.genre,
       price: String(product.price),
       stock: String(product.stock),
       description: product.description,
+      image: product.image,
     });
     setError("");
+    setImageError("");
+    setPreviewOpen(false);
+    setFileInputKey((key) => key + 1);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function cancelEdit() {
-    setEditingId(null);
-    setForm(emptyForm);
-    setError("");
+    resetForm();
   }
 
   return (
@@ -497,7 +613,7 @@ function SellerDashboard({
             <div><span>Productos agotados</span><strong>{products.filter((product) => product.stock === 0).length}</strong></div>
           </div>
 
-          <section className="seller-panel">
+          <section className="seller-panel seller-create-panel">
             <div className="seller-section-heading">
               <div>
                 <span className="eyebrow">{editingId !== null ? "ACTUALIZAR PRODUCTO" : "NUEVO PRODUCTO"}</span>
@@ -505,37 +621,112 @@ function SellerDashboard({
               </div>
             </div>
 
-            <form className="seller-form" onSubmit={submit}>
-              <label className="field">
-                <span>Nombre del videojuego</span>
-                <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Ej. Cyber Runner" required />
-              </label>
-              <label className="field">
-                <span>Género</span>
-                <input value={form.genre} onChange={(event) => setForm({ ...form, genre: event.target.value })} placeholder="Ej. Acción • Aventura" required />
-              </label>
-              <label className="field">
-                <span>Precio (USD)</span>
-                <input type="number" min="0.01" step="0.01" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} placeholder="29.99" required />
-              </label>
-              <label className="field">
-                <span>Stock disponible</span>
-                <input type="number" min="0" step="1" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} placeholder="10" required />
-              </label>
-              <label className="field seller-description-field">
-                <span>Descripción</span>
-                <textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Describe el videojuego..." rows={3} required />
-              </label>
+            <div className="seller-create-layout">
+              <form className="seller-form seller-form-editor" onSubmit={submit}>
+                <label className="field">
+                  <span>Nombre del videojuego</span>
+                  <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Ej. Cyber Runner" required />
+                </label>
+                <label className="field">
+                  <span>Estudio o desarrollador</span>
+                  <input value={form.studio} onChange={(event) => setForm({ ...form, studio: event.target.value })} placeholder="Ej. Nightwave Studios" required />
+                </label>
+                <label className="field">
+                  <span>Frase promocional</span>
+                  <input value={form.tagline} onChange={(event) => setForm({ ...form, tagline: event.target.value })} placeholder="Ej. Una aventura más allá del tiempo" required />
+                </label>
+                <label className="field">
+                  <span>Género</span>
+                  <input value={form.genre} onChange={(event) => setForm({ ...form, genre: event.target.value })} placeholder="Ej. Acción • Aventura" required />
+                </label>
+                <label className="field">
+                  <span>Precio (USD)</span>
+                  <input type="number" min="0.01" step="0.01" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} placeholder="29.99" required />
+                </label>
+                <label className="field">
+                  <span>Stock disponible</span>
+                  <input type="number" min="0" step="1" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} placeholder="10" required />
+                </label>
+                <label className="field seller-description-field">
+                  <span>Descripción</span>
+                  <textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Describe el videojuego..." rows={3} required />
+                </label>
 
-              {error && <p className="seller-error" role="alert">{error}</p>}
+                <div className="seller-image-field">
+                  <label className="field">
+                    <span>Imagen del videojuego</span>
+                    <input
+                      key={fileInputKey}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      aria-describedby="seller-image-help"
+                    />
+                  </label>
+                  <p id="seller-image-help" className="seller-image-help">Formatos de imagen · Máximo 5 MB</p>
+                  {imageError && <p className="seller-error" role="alert">{imageError}</p>}
+                  {form.image && (
+                    <div className="seller-selected-image">
+                      <img src={form.image} alt="Vista previa de la imagen seleccionada" />
+                      <span>Imagen lista para la publicación</span>
+                      <button type="button" onClick={() => { setForm({ ...form, image: "" }); setFileInputKey((key) => key + 1); }}>Quitar imagen</button>
+                    </div>
+                  )}
+                </div>
 
-              <div className="seller-form-actions">
-                <button className="primary-button" type="submit">
-                  {editingId !== null ? "Guardar cambios" : "Publicar producto"}
-                </button>
-                {editingId !== null && <button className="seller-cancel-button" onClick={cancelEdit} type="button">Cancelar</button>}
-              </div>
-            </form>
+                {error && <p className="seller-error" role="alert">{error}</p>}
+
+                <div className="seller-form-actions">
+                  <button className="primary-button" type="submit">
+                    {editingId !== null ? "Guardar cambios" : "Publicar producto"}
+                  </button>
+                  <button
+                    className="seller-preview-button"
+                    type="button"
+                    disabled={!form.image}
+                    onClick={() => setPreviewOpen(true)}
+                  >
+                    <Icon name="eye" size={17} /> Ver videojuego completo
+                  </button>
+                  {editingId !== null && <button className="seller-cancel-button" onClick={cancelEdit} type="button">Cancelar</button>}
+                </div>
+              </form>
+
+              <aside className="seller-live-preview">
+                <div className="seller-preview-heading">
+                  <span className="eyebrow">VISTA PREVIA EN VIVO</span>
+                  <span className="seller-preview-dot">● ACTUALIZADA</span>
+                </div>
+                <p className="seller-preview-caption">Así se verá la tarjeta en el catálogo.</p>
+                <article className="game-card seller-preview-card">
+                  <div className="game-card-open seller-preview-card-open">
+                    <div className="game-cover">
+                      {form.image ? (
+                        <img src={form.image} alt="Portada del videojuego en vista previa" />
+                      ) : (
+                        <div className="seller-preview-placeholder">
+                          <Icon name="image-plus" size={30} />
+                          <span>Sube una imagen</span>
+                        </div>
+                      )}
+                      <span className="rating"><Icon name="star" size={13} /> {previewGame.rating}</span>
+                    </div>
+                    <div className="game-info">
+                      <h3>{previewGame.title}</h3>
+                      <p>{previewGame.genre}</p>
+                      <div className="game-price-row">
+                        <strong>${previewGame.price.toFixed(2)}</strong>
+                        <span className={previewGame.stock > 0 ? "in-stock" : "out-of-stock"}>
+                          {previewGame.stock > 0 ? `${previewGame.stock} disponibles` : "Agotado"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="seller-preview-cart-label">+ Añadir al carrito</div>
+                </article>
+                <p className="seller-preview-footnote">La tarjeta se actualiza mientras completas el formulario.</p>
+              </aside>
+            </div>
           </section>
 
           <section className="seller-panel">
@@ -579,10 +770,53 @@ function SellerDashboard({
           </section>
         </div>
       </main>
+
+      {previewOpen && (
+        <div className="seller-preview-modal-backdrop" role="presentation" onClick={() => setPreviewOpen(false)}>
+          <section
+            className="seller-preview-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="seller-preview-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="seller-preview-modal-header">
+              <div>
+                <span className="eyebrow">VISTA PREVIA</span>
+                <h2 id="seller-preview-title">Así verá el juego un comprador</h2>
+              </div>
+              <button type="button" className="seller-preview-close" onClick={() => setPreviewOpen(false)} aria-label="Cerrar vista previa">×</button>
+            </div>
+            <div className="seller-full-preview">
+              <div className="seller-full-preview-banner">
+                <img src={form.image} alt="" />
+              </div>
+              <div className="seller-full-preview-content">
+                <div className="seller-full-preview-cover">
+                  <img src={form.image} alt={`Portada de ${previewGame.title}`} />
+                  <div className="cover-score"><strong>9.0</strong><span>VISTA PREVIA</span></div>
+                </div>
+                <div className="seller-full-preview-info">
+                  <span className="eyebrow">{previewGame.studio}</span>
+                  <h1>{previewGame.title}</h1>
+                  <p className="detail-tagline">{previewGame.tagline}</p>
+                  <p className="synopsis">{previewGame.description}</p>
+                  <div className="detail-block"><span>GÉNEROS</span><p>{previewGame.genre}</p></div>
+                  <div className="detail-block"><span>PRECIO</span><p className="detail-price">${previewGame.price.toFixed(2)}</p></div>
+                  <div className="detail-block"><span>DISPONIBILIDAD</span><p>{previewGame.stock > 0 ? `${previewGame.stock} unidades disponibles` : "Agotado"}</p></div>
+                </div>
+              </div>
+            </div>
+            <div className="seller-preview-modal-footer">
+              <span>Esta es una simulación; el producto aún no se ha publicado.</span>
+              <button className="primary-button" type="button" onClick={() => setPreviewOpen(false)}>Volver al formulario</button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
-
 
 type DemoUser = {
   id: number;
@@ -983,6 +1217,7 @@ function InvoicePage({
 
 export default function App() {
   const [view, setView] = useState<View>("login");
+  const [selectedGameId, setSelectedGameId] = useState<number | null>(games[0]?.id ?? null);
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
@@ -1126,11 +1361,12 @@ export default function App() {
   if (view === "login" || view === "register") {
     page = <AuthLayout mode={view} setView={setView} />;
   } else if (view === "details") {
-    page = <Details setView={setView} search={search} setSearch={setSearch} cartCount={cartCount} onOpenCart={() => setCartOpen(true)} onAddToCart={addToCart} catalogGames={catalogGames} />;
+    page = <Details setView={setView} selectedGameId={selectedGameId} search={search} setSearch={setSearch} cartCount={cartCount} onOpenCart={() => setCartOpen(true)} onAddToCart={addToCart} catalogGames={catalogGames} />;
   } else if (view === "profile") {
     page = (
       <Profile
         setView={setView}
+        setSelectedGameId={setSelectedGameId}
         search={search}
         setSearch={setSearch}
         purchasedGames={purchasedGames}
@@ -1171,7 +1407,7 @@ export default function App() {
       onContinue={() => setView("home")}
     />;
   } else {
-    page = <Home setView={setView} search={search} setSearch={setSearch} cartCount={cartCount} onOpenCart={() => setCartOpen(true)} onAddToCart={addToCart} catalogGames={catalogGames} />;
+    page = <Home setView={setView} setSelectedGameId={setSelectedGameId} search={search} setSearch={setSearch} cartCount={cartCount} onOpenCart={() => setCartOpen(true)} onAddToCart={addToCart} catalogGames={catalogGames} />;
   }
 
   return (

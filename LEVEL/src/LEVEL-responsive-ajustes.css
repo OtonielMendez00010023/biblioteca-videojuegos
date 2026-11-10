@@ -1,0 +1,206 @@
+/* Ajustes responsive de imágenes y tarjetas para LEVEL.
+   Se mantienen React, TypeScript, Vite y CSS nativo. */
+
+/* Evita que las imágenes alteren el tamaño de sus contenedores. */
+.hero,
+.game-cover,
+.detail-banner,
+.detail-cover,
+.library-item {
+  min-width: 0;
+}
+
+.hero > img,
+.game-cover img,
+.detail-banner img,
+.detail-cover img,
+.library-item img {
+  display: block;
+  max-width: 100%;
+}
+
+/* Catálogo: todas las portadas mantienen la misma proporción. */
+.game-cover {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background: #14151b;
+}
+
+.game-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* La tarjeta no debe crecer ni desplazarse al pasar el cursor. */
+.game-card {
+  min-width: 0;
+}
+
+.game-card-open {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+
+.game-card:hover .game-cover img {
+  transform: scale(1.02);
+}
+
+/* Detalle: banner panorámico y portada vertical independientes. */
+.detail-banner {
+  height: clamp(220px, 32vw, 400px);
+}
+
+.detail-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 45%;
+}
+
+.detail-cover {
+  width: 100%;
+  max-width: 300px;
+}
+
+.detail-cover img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Evita desbordamientos horizontales en pantallas estrechas. */
+.page-container,
+.detail-container {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 900px) {
+  .game-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px 14px;
+  }
+
+  .detail-banner {
+    height: 270px;
+  }
+
+  .detail-container {
+    margin-top: -105px;
+  }
+}
+
+@media (max-width: 620px) {
+  .page-container {
+    width: calc(100% - 30px);
+    padding-top: 20px;
+  }
+
+  /* Hero más compacto: evita que la imagen ocupe casi toda la pantalla. */
+  .hero {
+    height: 285px;
+    min-height: 0;
+    border-radius: 8px;
+  }
+
+  .hero > img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .hero-content {
+    right: 18px;
+    bottom: 52px;
+    left: 18px;
+  }
+
+  .hero h1 {
+    font-size: clamp(32px, 9vw, 44px);
+    line-height: 0.98;
+  }
+
+  .hero-content p {
+    margin: 12px 0 18px;
+    font-size: 13px;
+  }
+
+  .hero-meta {
+    bottom: 14px;
+    left: 18px;
+    right: auto;
+    flex-wrap: wrap;
+  }
+
+  .game-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 12px;
+  }
+
+  .game-cover {
+    aspect-ratio: 4 / 5;
+  }
+
+  .game-info h3 {
+    overflow-wrap: anywhere;
+  }
+
+  .detail-banner {
+    height: 205px;
+  }
+
+  .detail-container {
+    width: calc(100% - 30px);
+    margin-top: -62px;
+  }
+
+  .detail-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .detail-cover {
+    width: min(148px, 48vw);
+    max-width: 148px;
+  }
+
+  .detail-cover img {
+    aspect-ratio: 4 / 5;
+  }
+
+  .detail-copy {
+    min-width: 0;
+    padding-top: 24px;
+  }
+
+  .detail-copy h1,
+  .detail-copy h2 {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 360px) {
+  .game-grid {
+    gap: 14px 9px;
+  }
+
+  .game-info h3 {
+    font-size: 14px;
+  }
+
+  .game-info p {
+    font-size: 11px;
+  }
+
+  .hero {
+    height: 255px;
+  }
+}

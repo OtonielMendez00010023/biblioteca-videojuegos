@@ -1,0 +1,110 @@
+/* Pulido final: el área de detalles debe ocupar todo el ancho y fundirse
+   con el banner, sin formar un rectángulo negro encima de la imagen. */
+
+.detail-banner {
+  position: relative;
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  background: #090910;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.detail-banner img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 45%;
+  border: 0 !important;
+}
+
+/* El degradado hace la transición entre la imagen y el fondo general. */
+.detail-banner > div {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(9, 9, 16, 0) 38%,
+    rgba(9, 9, 16, 0.12) 56%,
+    rgba(9, 9, 16, 0.38) 72%,
+    rgba(9, 9, 16, 0.72) 86%,
+    rgba(9, 9, 16, 0.94) 96%,
+    #090910 100%
+  );
+}
+
+/* CLAVE: antes este contenedor conservaba un ancho menor al móvil y
+   un fondo opaco. Eso dejaba visible un rectángulo sobre el banner. */
+.detail-container {
+  position: relative;
+  display: block;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 0 !important;
+  padding: 18px 15px 42px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+
+/* Portada: conserva el tamaño, centrado y estilo que ya aprobaste. */
+.detail-cover {
+  width: min(190px, 58vw);
+  max-width: 190px;
+  margin: 0 auto;
+  overflow: hidden;
+  background: #101018;
+  border: 1px solid rgba(180, 160, 210, 0.22);
+  border-radius: 12px;
+}
+
+.detail-cover > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  object-position: center;
+}
+
+@media (max-width: 620px) {
+  .detail-banner {
+    height: 250px;
+  }
+
+  .detail-container {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 18px 15px 42px !important;
+    background: transparent !important;
+  }
+
+  .detail-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .detail-cover {
+    width: min(190px, 58vw);
+    max-width: 190px;
+    margin: 0 auto;
+  }
+
+  .detail-copy {
+    width: 100%;
+    min-width: 0;
+    padding-top: 0;
+  }
+}
