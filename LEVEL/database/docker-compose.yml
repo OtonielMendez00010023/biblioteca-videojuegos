@@ -1,0 +1,36 @@
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: level-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${DB_NAME:?Falta DB_NAME}
+      POSTGRES_USER: ${DB_USER:?Falta DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD}
+
+    ports:
+      - "127.0.0.1:5433:5432"
+
+    volumes:
+      - level_data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d:ro
+
+    networks:
+      - level_network
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  level_data:
+
+networks:
+  level_network:
+    driver: bridge
