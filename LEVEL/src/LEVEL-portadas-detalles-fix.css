@@ -1,0 +1,58 @@
+/* Correcciones de portada y separación del banner de detalles LEVEL */
+
+/* La portada vertical se centra y se muestra completa, sin recortes. */
+.detail-cover {
+  width: min(190px, 70vw);
+  max-width: 190px;
+  margin: 0 auto;
+  justify-self: center;
+  align-self: start;
+  overflow: hidden;
+  background: #101018;
+}
+
+.detail-cover img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 5;
+  object-fit: contain;
+  object-position: center;
+  margin: 0 auto;
+  background: #101018;
+}
+
+/* En móvil, el banner termina antes de que comience la portada. */
+@media (max-width: 620px) {
+  .detail-container {
+    margin-top: 0;
+    padding-top: 18px;
+  }
+
+  .detail-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .detail-cover {
+    width: min(190px, 62vw);
+    max-width: 190px;
+    margin: 0 auto;
+  }
+
+  .detail-copy {
+    width: 100%;
+    padding-top: 0;
+  }
+}
+
+/* En pantallas medianas y grandes también mantenemos la portada centrada
+   dentro de su columna, sin cambiar la composición general. */
+@media (min-width: 621px) {
+  .detail-cover {
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
