@@ -1,3 +1,5 @@
+import axios from "axios";
+import { login, register } from "./services/authService";
 import { ChangeEvent, FormEvent, ReactNode, useEffect, useState } from "react";
 import "./LEVEL-panel-administrador.css";
 import "./LEVEL-responsive-ajustes.css";
@@ -157,51 +159,222 @@ function Navbar({
   );
 }
 
-function AuthLayout({ mode, setView }: { mode: "login" | "register"; setView: (view: View) => void }) {
+
+function AuthLayout({
+  mode,
+  setView,
+  onAuthenticated,
+}: {
+  mode: "login" | "register";
+  setView: (view: View) => void;
+  onAuthenticated: () => void;
+}) {
   const isLogin = mode === "login";
-  function submit(event: FormEvent) {
+
+  const [nombre, setNombre] = useState("");
+  const [apellido, setApellido] = useState("");
+  const [correo, setCorreo] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setView("home");
+    setError("");
+
+    if (!isLogin && password !== confirmPassword) {
+      setError("Las contraseñas no coinciden.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      if (isLogin) {
+        await login(correo, password);
+      } else {
+        await register({
+          nombre,
+          apellido,
+          correo,
+          password,
+        });
+
+        // Iniciar sesión automáticamente después del registro.
+        await login(correo, password);
+      }
+
+      onAuthenticated();
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        setError(
+          error.response?.data?.error ??
+          error.response?.data?.message ??
+          "No se pudo conectar con el servidor."
+        );
+      } else {
+        setError("Ocurrió un error inesperado.");
+      }
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <main className="auth-page">
-      <div className="auth-brand"><Logo onClick={() => setView("login")} /></div>
+      <div className="auth-brand">
+        <Logo onClick={() => setView("login")} />
+      </div>
+
       <section className="auth-card">
         <div className="auth-heading">
-          <span className="eyebrow">{isLogin ? "TU BIBLIOTECA TE ESPERA" : "ÚNETE A LA COMUNIDAD"}</span>
-          <h1>{isLogin ? "Bienvenido de nuevo" : "Crea tu cuenta"}</h1>
-          <p>{isLogin ? "Accede para seguir descubriendo nuevos mundos." : "Guarda, organiza y descubre tu próxima aventura."}</p>
+          <span className="eyebrow">
+            {isLogin ? "TU BIBLIOTECA TE ESPERA" : "ÚNETE A LA COMUNIDAD"}
+          </span>
+
+          <h1>
+            {isLogin ? "Bienvenido de nuevo" : "Crea tu cuenta"}
+          </h1>
+
+          <p>
+            {isLogin
+              ? "Accede para seguir descubriendo nuevos mundos."
+              : "Guarda, organiza y descubre tu próxima aventura."}
+          </p>
         </div>
+
         <form onSubmit={submit}>
-          {!isLogin && <Field label="Nombre de usuario" placeholder="Tu nombre de usuario" type="text" />}
-          <Field label="Correo electrónico" placeholder="tu@correo.com" type="email" />
-          <Field label="Contraseña" placeholder="••••••••" type="password" />
-          {!isLogin && <Field label="Confirmar contraseña" placeholder="••••••••" type="password" />}
+          {!isLogin && (
+            <>
+              <Field
+                label="Nombre"
+                placeholder="Tu nombre"
+                type="text"
+                value={nombre}
+                onChange={setNombre}
+              />
+
+              <Field
+                label="Apellido"
+                placeholder="Tu apellido"
+                type="text"
+                value={apellido}
+                onChange={setApellido}
+              />
+            </>
+          )}
+
+          <Field
+            label="Correo electrónico"
+            placeholder="tu@correo.com"
+            type="email"
+            value={correo}
+            onChange={setCorreo}
+          />
+
+          <Field
+            label="Contraseña"
+            placeholder="••••••••"
+            type="password"
+            value={password}
+            onChange={setPassword}
+          />
+
+          {!isLogin && (
+            <Field
+              label="Confirmar contraseña"
+              placeholder="••••••••"
+              type="password"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+            />
+          )}
+
           {isLogin && (
             <div className="form-row">
-              <label className="remember"><input type="checkbox" /><span>Recordarme</span></label>
-              <button className="text-link" type="button">¿Olvidaste tu contraseña?</button>
+              <label className="remember">
+                <input type="checkbox" />
+                <span>Recordarme</span>
+              </label>
+
+              <button className="text-link" type="button">
+                ¿Olvidaste tu contraseña?
+              </button>
             </div>
           )}
-          <button className="primary-button auth-submit" type="submit">
-            {isLogin ? "Iniciar sesión" : "Registrarse"} <Icon name="arrow" size={18} />
+
+          {error && (
+            <p role="alert" style={{ color: "#f87171" }}>
+              {error}
+            </p>
+          )}
+
+          <button
+            className="primary-button auth-submit"
+            type="submit"
+            disabled={loading}
+          >
+            {loading
+              ? "Procesando..."
+              : isLogin
+                ? "Iniciar sesión"
+                : "Registrarse"}
+
+            <Icon name="arrow" size={18} />
           </button>
         </form>
+
         <div className="auth-switch">
-          <span>{isLogin ? "¿No tienes cuenta?" : "¿Ya tienes una cuenta?"}</span>
-          <button onClick={() => setView(isLogin ? "register" : "login")} type="button">{isLogin ? "Regístrate" : "Inicia sesión"}</button>
+          <span>
+            {isLogin ? "¿No tienes cuenta?" : "¿Ya tienes una cuenta?"}
+          </span>
+
+          <button
+            onClick={() => {
+              setError("");
+              setView(isLogin ? "register" : "login");
+            }}
+            type="button"
+          >
+            {isLogin ? "Regístrate" : "Inicia sesión"}
+          </button>
         </div>
       </section>
-      <p className="auth-footer">Tu universo de juegos, en un solo lugar.</p>
+
+      <p className="auth-footer">
+        Tu universo de juegos, en un solo lugar.
+      </p>
     </main>
   );
 }
 
-function Field({ label, placeholder, type }: { label: string; placeholder: string; type: string }) {
-  return <label className="field"><span>{label}</span><input placeholder={placeholder} type={type} required /></label>;
+function Field({
+  label,
+  placeholder,
+  type,
+  value,
+  onChange,
+}: {
+  label: string;
+  placeholder: string;
+  type: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <input
+        placeholder={placeholder}
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        required
+      />
+    </label>
+  );
 }
-
 function GameCard({ game, onClick, onAddToCart }: {
   game: Game;
   onClick: () => void;
@@ -1359,7 +1532,13 @@ export default function App() {
 
   let page: ReactNode;
   if (view === "login" || view === "register") {
-    page = <AuthLayout mode={view} setView={setView} />;
+    page = (
+      <AuthLayout
+        mode={view}
+        setView={setView}
+        onAuthenticated={() => setView("home")}
+      />
+    );
   } else if (view === "details") {
     page = <Details setView={setView} selectedGameId={selectedGameId} search={search} setSearch={setSearch} cartCount={cartCount} onOpenCart={() => setCartOpen(true)} onAddToCart={addToCart} catalogGames={catalogGames} />;
   } else if (view === "profile") {
