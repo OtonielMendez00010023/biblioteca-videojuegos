@@ -25,7 +25,8 @@
   }
 
   button,
-  input {
+  input,
+  select {
     font: inherit;
   }
 
@@ -494,7 +495,8 @@
   font-weight: 600;
 }
 
-.field input {
+.field input,
+.field select {
   width: 100%;
   height: 46px;
   border: 1px solid #30313c;
@@ -508,6 +510,10 @@
 }
 
 .field input:focus {
+  border-color: #7955d1;
+}
+
+.field select:focus {
   border-color: #7955d1;
 }
 

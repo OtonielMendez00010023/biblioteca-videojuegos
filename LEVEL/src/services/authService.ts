@@ -11,6 +11,7 @@ export interface RegisterData {
   apellido: string;
   correo: string;
   password: string;
+  rol: "COMPRADOR" | "VENDEDOR";
 }
 
 export interface RegisterResponse {
@@ -20,6 +21,15 @@ export interface RegisterResponse {
     nombre: string;
     correo: string;
   };
+}
+
+export interface AdminUser {
+  id_usuario: number;
+  nombre: string;
+  apellido: string;
+  correo: string;
+  rol: "COMPRADOR" | "VENDEDOR" | "ADMINISTRADOR";
+  estado: "ACTIVO" | "INACTIVO" | "BLOQUEADO";
 }
 
 export async function login(
@@ -45,6 +55,11 @@ export async function register(
     user
   );
 
+  return response.data;
+}
+
+export async function getUsers(): Promise<AdminUser[]> {
+  const response = await api.get<AdminUser[]>("/auth/users");
   return response.data;
 }
 

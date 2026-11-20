@@ -113,6 +113,8 @@ DB_NAME=level_db
 
 **Importante:** el archivo `.env` contiene credenciales privadas y no debe subirse al repositorio.
 
+También se deben definir `ADMIN_NOMBRE`, `ADMIN_APELLIDO`, `ADMIN_CORREO` y `ADMIN_PASSWORD_HASH`. El último debe ser un hash bcrypt, nunca la contraseña en texto plano. Durante la primera inicialización se crea un único administrador con esos datos.
+
 ## 8. Instalación y ejecución
 
 Ubicarse en la carpeta `database`:

@@ -1,5 +1,6 @@
 import axios from "axios";
-import { login, register } from "./services/authService";
+import { getUsers, login, register, type AdminUser } from "./services/authService";
+import { checkout, getAdminSales } from "./services/commerceService";
 import { ChangeEvent, FormEvent, ReactNode, useEffect, useState } from "react";
 import "./LEVEL-panel-administrador.css";
 import "./LEVEL-responsive-ajustes.css";
@@ -106,6 +107,10 @@ function Navbar({
   onOpenCart?: () => void;
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const role = sessionStorage.getItem("level_role");
+  const isBuyer = role === "COMPRADOR";
+  const isSeller = role === "VENDEDOR";
+  const isAdmin = role === "ADMINISTRADOR";
 
   function navigate(view: View) {
     setView(view);
@@ -118,22 +123,22 @@ function Navbar({
         <Logo onClick={() => navigate("home")} />
         <nav className="nav-links" aria-label="Navegación principal">
           <button onClick={() => navigate("home")} type="button">Explorar</button>
-          <button onClick={() => navigate("profile")} type="button">Mi biblioteca</button>
-          <button onClick={() => navigate("seller")} type="button">Vendedor</button>
-          <button onClick={() => navigate("admin")} type="button">Admin</button>
+          {isBuyer && <button onClick={() => navigate("profile")} type="button">Mi biblioteca</button>}
+          {isSeller && <button onClick={() => navigate("seller")} type="button">Vendedor</button>}
+          {isAdmin && <button onClick={() => navigate("admin")} type="button">Administración</button>}
         </nav>
         <label className="search-box">
           <Icon name="search" size={18} />
           <input aria-label="Buscar juegos" onChange={(event) => setSearch(event.target.value)} placeholder="Buscar juegos..." value={search} />
           <span className="key">⌘ K</span>
         </label>
-        <button className="cart-button" onClick={onOpenCart} type="button" aria-label="Abrir carrito">
+        {isBuyer && <button className="cart-button" onClick={onOpenCart} type="button" aria-label="Abrir carrito">
           <Icon name="cart" size={19} />
           {(cartCount ?? 0) > 0 && <span className="cart-badge">{cartCount}</span>}
-        </button>
-        <button className="avatar-button" onClick={() => navigate("profile")} type="button" aria-label="Abrir perfil">
+        </button>}
+        {isBuyer && <button className="avatar-button" onClick={() => navigate("profile")} type="button" aria-label="Abrir perfil">
           <span>LM</span><i aria-hidden="true" />
-        </button>
+        </button>}
         <button
           className={`mobile-menu-toggle ${mobileMenuOpen ? "is-open" : ""}`}
           onClick={() => setMobileMenuOpen((open) => !open)}
@@ -150,9 +155,9 @@ function Navbar({
       {mobileMenuOpen && (
         <nav className="mobile-navigation" id="mobile-navigation" aria-label="Navegación móvil">
           <button onClick={() => navigate("home")} type="button">Explorar</button>
-          <button onClick={() => navigate("profile")} type="button">Mi biblioteca</button>
-          <button onClick={() => navigate("seller")} type="button">Vendedor</button>
-          <button onClick={() => navigate("admin")} type="button">Administrador</button>
+          {isBuyer && <button onClick={() => navigate("profile")} type="button">Mi biblioteca</button>}
+          {isSeller && <button onClick={() => navigate("seller")} type="button">Vendedor</button>}
+          {isAdmin && <button onClick={() => navigate("admin")} type="button">Administración</button>}
         </nav>
       )}
     </header>
@@ -176,6 +181,7 @@ function AuthLayout({
   const [correo, setCorreo] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [rol, setRol] = useState<"COMPRADOR" | "VENDEDOR">("COMPRADOR");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -199,6 +205,7 @@ function AuthLayout({
           apellido,
           correo,
           password,
+          rol,
         });
 
         // Iniciar sesión automáticamente después del registro.
@@ -262,6 +269,14 @@ function AuthLayout({
                 value={apellido}
                 onChange={setApellido}
               />
+
+              <label className="field">
+                <span>Tipo de cuenta</span>
+                <select value={rol} onChange={(event) => setRol(event.target.value as "COMPRADOR" | "VENDEDOR")}>
+                  <option value="COMPRADOR">Comprador</option>
+                  <option value="VENDEDOR">Vendedor</option>
+                </select>
+              </label>
             </>
           )}
 
@@ -991,29 +1006,17 @@ function SellerDashboard({
   );
 }
 
-type DemoUser = {
-  id: number;
-  name: string;
-  email: string;
-  role: "Comprador" | "Vendedor" | "Administrador";
-  active: boolean;
-};
-
 function AdminDashboard({
   products,
   invoices,
   users,
-  onChangeRole,
-  onToggleUser,
   onUpdateProduct,
   onDeleteProduct,
   onBack,
 }: {
   products: Game[];
   invoices: Invoice[];
-  users: DemoUser[];
-  onChangeRole: (id: number, role: DemoUser["role"]) => void;
-  onToggleUser: (id: number) => void;
+  users: AdminUser[];
   onUpdateProduct: (product: Game) => void;
   onDeleteProduct: (id: number) => void;
   onBack: () => void;
@@ -1073,7 +1076,7 @@ function AdminDashboard({
           {section === "overview" && (
             <>
               <div className="admin-stat-grid">
-                <article><span>Usuarios registrados</span><strong>{users.length}</strong><small>{users.filter((user) => user.active).length} activos</small></article>
+                <article><span>Usuarios registrados</span><strong>{users.length}</strong><small>{users.filter((user) => user.estado === "ACTIVO").length} activos</small></article>
                 <article><span>Videojuegos en catálogo</span><strong>{products.length}</strong><small>{products.reduce((sum, product) => sum + product.stock, 0)} unidades disponibles</small></article>
                 <article><span>Ventas registradas</span><strong>{invoices.length}</strong><small>{unitsSold} unidades vendidas</small></article>
                 <article><span>Ingresos simulados</span><strong>${revenue.toFixed(2)}</strong><small>Acumulado de las facturas</small></article>
@@ -1100,14 +1103,13 @@ function AdminDashboard({
           {section === "users" && (
             <section className="admin-panel">
               <div className="admin-panel-heading"><div><span className="eyebrow">GESTIÓN DE CUENTAS</span><h2>Usuarios</h2></div><span className="library-count">{users.length} CUENTAS</span></div>
-              <p className="admin-note">Datos de ejemplo para demostrar la gestión de roles. No son cuentas autenticadas.</p>
+              <p className="admin-note">Cuentas registradas en la base de datos. Las contraseñas nunca se muestran.</p>
               <div className="admin-user-list">
                 {users.map((user) => (
-                  <article className="admin-user-row" key={user.id}>
-                    <div className="admin-user-avatar">{user.name.slice(0, 1).toUpperCase()}</div>
-                    <div className="admin-user-info"><strong>{user.name}</strong><span>{user.email}</span><small className={user.active ? "admin-active" : "admin-inactive"}>{user.active ? "Activo" : "Deshabilitado"}</small></div>
-                    <label className="admin-role-select"><span>Rol</span><select value={user.role} onChange={(event) => onChangeRole(user.id, event.target.value as DemoUser["role"])}><option>Comprador</option><option>Vendedor</option><option>Administrador</option></select></label>
-                    <button className="admin-toggle-button" onClick={() => onToggleUser(user.id)} type="button">{user.active ? "Deshabilitar" : "Habilitar"}</button>
+                  <article className="admin-user-row" key={user.id_usuario}>
+                    <div className="admin-user-avatar">{user.nombre.slice(0, 1).toUpperCase()}</div>
+                    <div className="admin-user-info"><strong>{user.nombre} {user.apellido}</strong><span>{user.correo}</span><small className={user.estado === "ACTIVO" ? "admin-active" : "admin-inactive"}>{user.estado}</small></div>
+                    <div className="admin-role-select"><span>Rol</span><strong>{user.rol}</strong></div>
                   </article>
                 ))}
               </div>
@@ -1227,16 +1229,26 @@ function Checkout({
 }: {
   cart: CartItem[];
   onBack: () => void;
-  onConfirm: (customerName: string, customerEmail: string) => void;
+  onConfirm: (customerName: string, customerEmail: string) => Promise<void>;
 }) {
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const total = cart.reduce((sum, item) => sum + item.game.price * item.quantity, 0);
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     if (cart.length === 0) return;
-    onConfirm(customerName.trim(), customerEmail.trim());
+    setError("");
+    setLoading(true);
+    try {
+      await onConfirm(customerName.trim(), customerEmail.trim());
+    } catch (error) {
+      setError(axios.isAxiosError(error) ? error.response?.data?.error ?? "No se pudo registrar la compra." : "No se pudo registrar la compra.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -1289,8 +1301,9 @@ function Checkout({
               </div>
             </section>
 
-            <button className="primary-button checkout-confirm-button" type="submit" disabled={cart.length === 0}>
-              Confirmar compra <Icon name="arrow" size={18} />
+            {error && <p className="seller-error" role="alert">{error}</p>}
+            <button className="primary-button checkout-confirm-button" type="submit" disabled={cart.length === 0 || loading}>
+              {loading ? "Procesando..." : "Confirmar compra"} <Icon name="arrow" size={18} />
             </button>
           </form>
 
@@ -1396,17 +1409,37 @@ export default function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [demoUsers, setDemoUsers] = useState<DemoUser[]>([
-    { id: 1, name: "Alex Morgan", email: "alex@level.demo", role: "Comprador", active: true },
-    { id: 2, name: "Sam Rivera", email: "sam@level.demo", role: "Vendedor", active: true },
-    { id: 3, name: "Taylor Cruz", email: "taylor@level.demo", role: "Administrador", active: true },
-  ]);
+  const [userRole, setUserRole] = useState(sessionStorage.getItem("level_role"));
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [purchasedGames, setPurchasedGames] = useState<Game[]>([]);
   const [catalogGames, setCatalogGames] = useState<Game[]>(games);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [view]);
+
+  useEffect(() => {
+    if (userRole !== "ADMINISTRADOR") return;
+
+    getUsers().then(setUsers).catch((error) => {
+      console.error("No se pudieron cargar los usuarios:", error);
+    });
+    getAdminSales().then((sales) => {
+      setInvoices(sales.map((sale) => ({
+        number: sale.numero_factura,
+        date: new Date(sale.fecha_emision).toLocaleString("es-SV"),
+        customerName: `${sale.nombre} ${sale.apellido}`,
+        customerEmail: sale.correo,
+        total: Number(sale.total),
+        items: sale.items.map((item) => ({
+          quantity: item.cantidad,
+          game: { id: item.id_videojuego, title: item.titulo, price: Number(item.precio_unitario), genre: "", rating: "", image: "", stock: 0, description: "" },
+        })),
+      })));
+    }).catch((error) => {
+      console.error("No se pudieron cargar las ventas:", error);
+    });
+  }, [userRole]);
 
   function addToCart(game: Game) {
     if (game.stock === 0) return;
@@ -1483,16 +1516,10 @@ export default function App() {
     setCart((previous) => previous.filter((item) => item.game.id !== id));
   }
 
-  function changeDemoUserRole(id: number, role: DemoUser["role"]) {
-    setDemoUsers((previous) => previous.map((user) => user.id === id ? { ...user, role } : user));
-  }
-
-  function toggleDemoUser(id: number) {
-    setDemoUsers((previous) => previous.map((user) => user.id === id ? { ...user, active: !user.active } : user));
-  }
-
-  function completePurchase(customerName: string, customerEmail: string) {
+  async function completePurchase(customerName: string, customerEmail: string) {
     if (cart.length === 0) return;
+
+    const purchase = await checkout(cart.map((item) => ({ id_videojuego: item.game.id, cantidad: item.quantity })));
 
     const purchaseItems = cart.map((item) => ({
       game: item.game,
@@ -1504,12 +1531,12 @@ export default function App() {
     );
 
     const newInvoice: Invoice = {
-      number: `LV-${Date.now().toString().slice(-8)}`,
-      date: new Date().toLocaleString("es-SV"),
+      number: purchase.factura.numero_factura,
+      date: new Date(purchase.factura.fecha_emision).toLocaleString("es-SV"),
       customerName,
       customerEmail,
       items: purchaseItems,
-      total,
+      total: Number(purchase.factura.total ?? total),
     };
     setInvoice(newInvoice);
     setInvoices((previous) => [...previous, newInvoice]);
@@ -1536,7 +1563,11 @@ export default function App() {
       <AuthLayout
         mode={view}
         setView={setView}
-        onAuthenticated={() => setView("home")}
+        onAuthenticated={() => {
+          const role = sessionStorage.getItem("level_role");
+          setUserRole(role);
+          setView(role === "ADMINISTRADOR" ? "admin" : role === "VENDEDOR" ? "seller" : "home");
+        }}
       />
     );
   } else if (view === "details") {
@@ -1551,20 +1582,18 @@ export default function App() {
         purchasedGames={purchasedGames}
       />
     );
-  } else if (view === "admin") {
+  } else if (view === "admin" && userRole === "ADMINISTRADOR") {
     page = (
       <AdminDashboard
         products={catalogGames}
         invoices={invoices}
-        users={demoUsers}
-        onChangeRole={changeDemoUserRole}
-        onToggleUser={toggleDemoUser}
+        users={users}
         onUpdateProduct={updateAdminProduct}
         onDeleteProduct={deleteAdminProduct}
         onBack={() => setView("home")}
       />
     );
-  } else if (view === "seller") {
+  } else if (view === "seller" && userRole === "VENDEDOR") {
     page = (
       <SellerDashboard
         products={catalogGames}
