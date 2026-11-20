@@ -5,7 +5,14 @@ import type { AuthRequest } from '../middlewares/authMiddleware.js';
 // Procesar una compra (Checkout)
 export const createPurchase = async (req: AuthRequest, res: Response) => {
     const id_usuario = req.user?.id;
-    const { items, metodo_pago } = req.body; // El frontend enviará: [{ id_videojuego: 1, cantidad: 2 }]
+    const { items, metodo_pago, referencia_pago } = req.body; // El frontend enviará: [{ id_videojuego: 1, cantidad: 2 }]
+
+    if (!['TARJETA', 'BITCOIN'].includes(metodo_pago)) {
+        return res.status(400).json({ error: 'Selecciona un método de pago válido.' });
+    }
+    if (typeof referencia_pago !== 'string' || !referencia_pago.trim()) {
+        return res.status(400).json({ error: 'Ingresa los datos de pago de demostración.' });
+    }
 
     if (!items || items.length === 0) {
         return res.status(400).json({ error: 'No hay artículos para comprar' });
@@ -56,9 +63,17 @@ export const createPurchase = async (req: AuthRequest, res: Response) => {
         const compraRes = await client.query(
             `INSERT INTO compras (id_usuario, subtotal, total, metodo_pago, estado) 
              VALUES ($1, $2, $3, $4, 'COMPLETADA') RETURNING id_compra`,
-            [id_usuario, subtotalGlobal, totalGlobal, metodo_pago || 'TARJETA']
+            [id_usuario, subtotalGlobal, totalGlobal, metodo_pago]
         );
         const id_compra = compraRes.rows[0].id_compra;
+
+        // SOLO LABORATORIO: vulnerabilidad documentada; no usar datos financieros reales.
+        await client.query(`CREATE TABLE IF NOT EXISTS pagos_demo (
+            id_pago SERIAL PRIMARY KEY, id_compra INTEGER NOT NULL UNIQUE REFERENCES compras(id_compra) ON DELETE RESTRICT,
+            metodo_pago VARCHAR(20) NOT NULL CHECK (metodo_pago IN ('TARJETA', 'BITCOIN')),
+            referencia_pago TEXT NOT NULL, fecha_registro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`);
+        await client.query('INSERT INTO pagos_demo (id_compra, metodo_pago, referencia_pago) VALUES ($1, $2, $3)', [id_compra, metodo_pago, referencia_pago.trim()]);
 
         // 3. Insertar los detalles y descontar el stock
         for (const detalle of detallesCompra) {
@@ -76,8 +91,15 @@ export const createPurchase = async (req: AuthRequest, res: Response) => {
             );
         }
 
+        const invoiceRes = await client.query(
+            `INSERT INTO facturas (id_compra, numero_factura, subtotal, total)
+             VALUES ($1, $2, $3, $4)
+             RETURNING numero_factura, fecha_emision, total`,
+            [id_compra, `FAC-${Date.now()}-${id_compra}`, subtotalGlobal, totalGlobal]
+        );
+
         await client.query('COMMIT'); // CONFIRMA Y GUARDA TODO
-        res.status(201).json({ message: 'Compra realizada con éxito', id_compra, total: totalGlobal });
+        res.status(201).json({ message: 'Compra realizada con éxito', id_compra, factura: invoiceRes.rows[0] });
         
     } catch (error: any) {
         await client.query('ROLLBACK'); // SI ALGO FALLÓ, REVIERTE TODO PARA NO COBRAR DE MÁS NI DAÑAR EL STOCK

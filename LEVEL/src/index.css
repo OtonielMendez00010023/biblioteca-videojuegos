@@ -25,7 +25,8 @@
   }
 
   button,
-  input {
+  input,
+  select {
     font: inherit;
   }
 
@@ -100,6 +101,39 @@
 .nav-links button:hover {
   color: #fff;
 }
+
+.nav-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+  color: #b9a2f5;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.tag-entry {
+  display: flex;
+  gap: 8px;
+}
+
+.tag-entry input { flex: 1; }
+
+.tag-entry button,
+.seller-tags button {
+  border: 1px solid #6d4ac4;
+  border-radius: 7px;
+  color: #d9ccff;
+  background: #211934;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.tag-entry button { padding: 0 12px; }
+
+.seller-tags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+.seller-tags button { padding: 5px 8px; }
+.seller-tags small { color: #878995; font-size: 11px; }
 
 .search-box {
   display: flex;
@@ -494,7 +528,8 @@
   font-weight: 600;
 }
 
-.field input {
+.field input,
+.field select {
   width: 100%;
   height: 46px;
   border: 1px solid #30313c;
@@ -508,6 +543,10 @@
 }
 
 .field input:focus {
+  border-color: #7955d1;
+}
+
+.field select:focus {
   border-color: #7955d1;
 }
 
