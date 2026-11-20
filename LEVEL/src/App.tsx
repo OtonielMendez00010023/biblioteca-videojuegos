@@ -1,7 +1,12 @@
-<<<<<<< Updated upstream
-=======
 import axios from "axios";
-import { login, register, logout } from "./services/authService";
+import {
+  getUsers,
+  login,
+  logout,
+  register,
+  type AdminUser,
+} from "./services/authService";
+import { checkout, getAdminSales } from "./services/commerceService";
 import {
   getGames,
   createGame,
@@ -10,10 +15,7 @@ import {
   mapGenreToCategoryIds,
   type BackendGame,
 } from "./services/gameService";
-import { checkout } from "./services/purchaseService";
-import { generateInvoice } from "./services/invoiceService";
 import { claimGames, getMyLibrary } from "./services/libraryService";
->>>>>>> Stashed changes
 import { ChangeEvent, FormEvent, ReactNode, useEffect, useState } from "react";
 import "./LEVEL-panel-administrador.css";
 import "./LEVEL-responsive-ajustes.css";
@@ -311,6 +313,9 @@ function Navbar({
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const role = sessionStorage.getItem("level_role");
+  const isBuyer = role === "COMPRADOR";
+  const isSeller = role === "VENDEDOR";
+  const isAdmin = role === "ADMINISTRADOR";
 
   function navigate(view: View) {
     setView(view);
@@ -325,17 +330,19 @@ function Navbar({
           <button onClick={() => navigate("home")} type="button">
             Explorar
           </button>
-          <button onClick={() => navigate("profile")} type="button">
-            Mi biblioteca
-          </button>
-          {(role === "VENDEDOR" || role === "ADMINISTRADOR") && (
+          {isBuyer && (
+            <button onClick={() => navigate("profile")} type="button">
+              Mi biblioteca
+            </button>
+          )}
+          {isSeller && (
             <button onClick={() => navigate("seller")} type="button">
               Vendedor
             </button>
           )}
-          {role === "ADMINISTRADOR" && (
+          {isAdmin && (
             <button onClick={() => navigate("admin")} type="button">
-              Admin
+              Administración
             </button>
           )}
         </nav>
@@ -349,26 +356,30 @@ function Navbar({
           />
           <span className="key">⌘ K</span>
         </label>
-        <button
-          className="cart-button"
-          onClick={onOpenCart}
-          type="button"
-          aria-label="Abrir carrito"
-        >
-          <Icon name="cart" size={19} />
-          {(cartCount ?? 0) > 0 && (
-            <span className="cart-badge">{cartCount}</span>
-          )}
-        </button>
-        <button
-          className="avatar-button"
-          onClick={() => navigate("profile")}
-          type="button"
-          aria-label="Abrir perfil"
-        >
-          <span>LM</span>
-          <i aria-hidden="true" />
-        </button>
+        {isBuyer && (
+          <button
+            className="cart-button"
+            onClick={onOpenCart}
+            type="button"
+            aria-label="Abrir carrito"
+          >
+            <Icon name="cart" size={19} />
+            {(cartCount ?? 0) > 0 && (
+              <span className="cart-badge">{cartCount}</span>
+            )}
+          </button>
+        )}
+        {isBuyer && (
+          <button
+            className="avatar-button"
+            onClick={() => navigate("profile")}
+            type="button"
+            aria-label="Abrir perfil"
+          >
+            <span>LM</span>
+            <i aria-hidden="true" />
+          </button>
+        )}
         <button
           className={`mobile-menu-toggle ${mobileMenuOpen ? "is-open" : ""}`}
           onClick={() => setMobileMenuOpen((open) => !open)}
@@ -391,17 +402,19 @@ function Navbar({
           <button onClick={() => navigate("home")} type="button">
             Explorar
           </button>
-          <button onClick={() => navigate("profile")} type="button">
-            Mi biblioteca
-          </button>
-          {(role === "VENDEDOR" || role === "ADMINISTRADOR") && (
+          {isBuyer && (
+            <button onClick={() => navigate("profile")} type="button">
+              Mi biblioteca
+            </button>
+          )}
+          {isSeller && (
             <button onClick={() => navigate("seller")} type="button">
               Vendedor
             </button>
           )}
-          {role === "ADMINISTRADOR" && (
+          {isAdmin && (
             <button onClick={() => navigate("admin")} type="button">
-              Administrador
+              Administración
             </button>
           )}
         </nav>
@@ -410,9 +423,6 @@ function Navbar({
   );
 }
 
-<<<<<<< Updated upstream
-function AuthLayout({ mode, setView }: { mode: "login" | "register"; setView: (view: View) => void }) {
-=======
 function AuthLayout({
   mode,
   setView,
@@ -422,13 +432,19 @@ function AuthLayout({
   setView: (view: View) => void;
   onAuthenticated: () => void;
 }) {
->>>>>>> Stashed changes
   const isLogin = mode === "login";
-  function submit(event: FormEvent) {
+
+  const [nombre, setNombre] = useState("");
+  const [apellido, setApellido] = useState("");
+  const [correo, setCorreo] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [rol, setRol] = useState<"COMPRADOR" | "VENDEDOR">("COMPRADOR");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-<<<<<<< Updated upstream
-    setView("home");
-=======
     setError("");
 
     if (!isLogin && password !== confirmPassword) {
@@ -447,9 +463,9 @@ function AuthLayout({
           apellido,
           correo,
           password,
+          rol,
         });
 
-        // Iniciar sesión automáticamente después del registro.
         await login(correo, password);
       }
 
@@ -467,19 +483,16 @@ function AuthLayout({
     } finally {
       setLoading(false);
     }
->>>>>>> Stashed changes
   }
 
   return (
     <main className="auth-page">
-      <div className="auth-brand"><Logo onClick={() => setView("login")} /></div>
+      <div className="auth-brand">
+        <Logo onClick={() => setView("login")} />
+      </div>
+
       <section className="auth-card">
         <div className="auth-heading">
-<<<<<<< Updated upstream
-          <span className="eyebrow">{isLogin ? "TU BIBLIOTECA TE ESPERA" : "ÚNETE A LA COMUNIDAD"}</span>
-          <h1>{isLogin ? "Bienvenido de nuevo" : "Crea tu cuenta"}</h1>
-          <p>{isLogin ? "Accede para seguir descubriendo nuevos mundos." : "Guarda, organiza y descubre tu próxima aventura."}</p>
-=======
           <span className="eyebrow">
             {isLogin ? "TU BIBLIOTECA TE ESPERA" : "ÚNETE A LA COMUNIDAD"}
           </span>
@@ -491,50 +504,156 @@ function AuthLayout({
               ? "Accede para seguir descubriendo nuevos mundos."
               : "Guarda, organiza y descubre tu próxima aventura."}
           </p>
->>>>>>> Stashed changes
         </div>
+
         <form onSubmit={submit}>
-          {!isLogin && <Field label="Nombre de usuario" placeholder="Tu nombre de usuario" type="text" />}
-          <Field label="Correo electrónico" placeholder="tu@correo.com" type="email" />
-          <Field label="Contraseña" placeholder="••••••••" type="password" />
-          {!isLogin && <Field label="Confirmar contraseña" placeholder="••••••••" type="password" />}
+          {!isLogin && (
+            <>
+              <Field
+                label="Nombre"
+                placeholder="Tu nombre"
+                type="text"
+                value={nombre}
+                onChange={setNombre}
+              />
+
+              <Field
+                label="Apellido"
+                placeholder="Tu apellido"
+                type="text"
+                value={apellido}
+                onChange={setApellido}
+              />
+
+              <label className="field">
+                <span>Tipo de cuenta</span>
+                <select
+                  value={rol}
+                  onChange={(event) =>
+                    setRol(event.target.value as "COMPRADOR" | "VENDEDOR")
+                  }
+                >
+                  <option value="COMPRADOR">Comprador</option>
+                  <option value="VENDEDOR">Vendedor</option>
+                </select>
+              </label>
+            </>
+          )}
+
+          <Field
+            label="Correo electrónico"
+            placeholder="tu@correo.com"
+            type="email"
+            value={correo}
+            onChange={setCorreo}
+          />
+
+          <Field
+            label="Contraseña"
+            placeholder="••••••••"
+            type="password"
+            value={password}
+            onChange={setPassword}
+          />
+
+          {!isLogin && (
+            <Field
+              label="Confirmar contraseña"
+              placeholder="••••••••"
+              type="password"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+            />
+          )}
+
           {isLogin && (
             <div className="form-row">
-              <label className="remember"><input type="checkbox" /><span>Recordarme</span></label>
-              <button className="text-link" type="button">¿Olvidaste tu contraseña?</button>
+              <label className="remember">
+                <input type="checkbox" />
+                <span>Recordarme</span>
+              </label>
+
+              <button className="text-link" type="button">
+                ¿Olvidaste tu contraseña?
+              </button>
             </div>
           )}
-          <button className="primary-button auth-submit" type="submit">
-            {isLogin ? "Iniciar sesión" : "Registrarse"} <Icon name="arrow" size={18} />
+
+          {error && (
+            <p role="alert" style={{ color: "#f87171" }}>
+              {error}
+            </p>
+          )}
+
+          <button
+            className="primary-button auth-submit"
+            type="submit"
+            disabled={loading}
+          >
+            {loading
+              ? "Procesando..."
+              : isLogin
+                ? "Iniciar sesión"
+                : "Registrarse"}
+
+            <Icon name="arrow" size={18} />
           </button>
         </form>
+
         <div className="auth-switch">
-          <span>{isLogin ? "¿No tienes cuenta?" : "¿Ya tienes una cuenta?"}</span>
-          <button onClick={() => setView(isLogin ? "register" : "login")} type="button">{isLogin ? "Regístrate" : "Inicia sesión"}</button>
+          <span>
+            {isLogin ? "¿No tienes cuenta?" : "¿Ya tienes una cuenta?"}
+          </span>
+
+          <button
+            onClick={() => {
+              setError("");
+              setView(isLogin ? "register" : "login");
+            }}
+            type="button"
+          >
+            {isLogin ? "Regístrate" : "Inicia sesión"}
+          </button>
         </div>
       </section>
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
       <p className="auth-footer">Tu universo de juegos, en un solo lugar.</p>
     </main>
   );
 }
 
-function Field({ label, placeholder, type }: { label: string; placeholder: string; type: string }) {
-  return <label className="field"><span>{label}</span><input placeholder={placeholder} type={type} required /></label>;
+function Field({
+  label,
+  placeholder,
+  type,
+  value,
+  onChange,
+}: {
+  label: string;
+  placeholder: string;
+  type: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <input
+        placeholder={placeholder}
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        required
+      />
+    </label>
+  );
 }
-<<<<<<< Updated upstream
 
-function GameCard({ game, onClick, onAddToCart }: {
-=======
 function GameCard({
   game,
   onClick,
   onAddToCart,
 }: {
->>>>>>> Stashed changes
   game: Game;
   onClick: () => void;
   onAddToCart: () => void;
@@ -805,12 +924,14 @@ function Profile({
   search,
   setSearch,
   purchasedGames,
+  onLogout,
 }: {
   setView: (view: View) => void;
   setSelectedGameId: (id: number) => void;
   search: string;
   setSearch: (value: string) => void;
   purchasedGames: Game[];
+  onLogout: () => void;
 }) {
   return (
     <div className="app-shell">
@@ -896,14 +1017,7 @@ function Profile({
           )}
         </section>
 
-        <button
-          className="logout-button"
-          onClick={() => {
-            logout();
-            setView("login");
-          }}
-          type="button"
-        >
+        <button className="logout-button" onClick={onLogout} type="button">
           <Icon name="logout" size={18} /> Cerrar sesión
         </button>
       </main>
@@ -1508,29 +1622,17 @@ function SellerDashboard({
   );
 }
 
-type DemoUser = {
-  id: number;
-  name: string;
-  email: string;
-  role: "Comprador" | "Vendedor" | "Administrador";
-  active: boolean;
-};
-
 function AdminDashboard({
   products,
   invoices,
   users,
-  onChangeRole,
-  onToggleUser,
   onUpdateProduct,
   onDeleteProduct,
   onBack,
 }: {
   products: Game[];
   invoices: Invoice[];
-  users: DemoUser[];
-  onChangeRole: (id: number, role: DemoUser["role"]) => void;
-  onToggleUser: (id: number) => void;
+  users: AdminUser[];
   onUpdateProduct: (product: Game) => void;
   onDeleteProduct: (id: number) => void;
   onBack: () => void;
@@ -1630,7 +1732,8 @@ function AdminDashboard({
                   <span>Usuarios registrados</span>
                   <strong>{users.length}</strong>
                   <small>
-                    {users.filter((user) => user.active).length} activos
+                    {users.filter((user) => user.estado === "ACTIVO").length}{" "}
+                    activos
                   </small>
                 </article>
                 <article>
@@ -1692,49 +1795,34 @@ function AdminDashboard({
                 <span className="library-count">{users.length} CUENTAS</span>
               </div>
               <p className="admin-note">
-                Datos de ejemplo para demostrar la gestión de roles. No son
-                cuentas autenticadas.
+                Cuentas registradas en la base de datos. Las contraseñas nunca
+                se muestran.
               </p>
               <div className="admin-user-list">
                 {users.map((user) => (
-                  <article className="admin-user-row" key={user.id}>
+                  <article className="admin-user-row" key={user.id_usuario}>
                     <div className="admin-user-avatar">
-                      {user.name.slice(0, 1).toUpperCase()}
+                      {user.nombre.slice(0, 1).toUpperCase()}
                     </div>
                     <div className="admin-user-info">
-                      <strong>{user.name}</strong>
-                      <span>{user.email}</span>
+                      <strong>
+                        {user.nombre} {user.apellido}
+                      </strong>
+                      <span>{user.correo}</span>
                       <small
                         className={
-                          user.active ? "admin-active" : "admin-inactive"
+                          user.estado === "ACTIVO"
+                            ? "admin-active"
+                            : "admin-inactive"
                         }
                       >
-                        {user.active ? "Activo" : "Deshabilitado"}
+                        {user.estado}
                       </small>
                     </div>
-                    <label className="admin-role-select">
+                    <div className="admin-role-select">
                       <span>Rol</span>
-                      <select
-                        value={user.role}
-                        onChange={(event) =>
-                          onChangeRole(
-                            user.id,
-                            event.target.value as DemoUser["role"],
-                          )
-                        }
-                      >
-                        <option>Comprador</option>
-                        <option>Vendedor</option>
-                        <option>Administrador</option>
-                      </select>
-                    </label>
-                    <button
-                      className="admin-toggle-button"
-                      onClick={() => onToggleUser(user.id)}
-                      type="button"
-                    >
-                      {user.active ? "Deshabilitar" : "Habilitar"}
-                    </button>
+                      <strong>{user.rol}</strong>
+                    </div>
                   </article>
                 ))}
               </div>
@@ -2015,19 +2103,33 @@ function Checkout({
 }: {
   cart: CartItem[];
   onBack: () => void;
-  onConfirm: (customerName: string, customerEmail: string) => void;
+  onConfirm: (customerName: string, customerEmail: string) => Promise<void>;
 }) {
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const total = cart.reduce(
     (sum, item) => sum + item.game.price * item.quantity,
     0,
   );
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     if (cart.length === 0) return;
-    onConfirm(customerName.trim(), customerEmail.trim());
+    setError("");
+    setLoading(true);
+    try {
+      await onConfirm(customerName.trim(), customerEmail.trim());
+    } catch (error) {
+      setError(
+        axios.isAxiosError(error)
+          ? (error.response?.data?.error ?? "No se pudo registrar la compra.")
+          : "No se pudo registrar la compra.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -2083,12 +2185,18 @@ function Checkout({
               </div>
             </section>
 
+            {error && (
+              <p className="seller-error" role="alert">
+                {error}
+              </p>
+            )}
             <button
               className="primary-button checkout-confirm-button"
               type="submit"
-              disabled={cart.length === 0}
+              disabled={cart.length === 0 || loading}
             >
-              Confirmar compra <Icon name="arrow" size={18} />
+              {loading ? "Procesando..." : "Confirmar compra"}{" "}
+              <Icon name="arrow" size={18} />
             </button>
           </form>
 
@@ -2200,29 +2308,10 @@ export default function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [demoUsers, setDemoUsers] = useState<DemoUser[]>([
-    {
-      id: 1,
-      name: "Alex Morgan",
-      email: "alex@level.demo",
-      role: "Comprador",
-      active: true,
-    },
-    {
-      id: 2,
-      name: "Sam Rivera",
-      email: "sam@level.demo",
-      role: "Vendedor",
-      active: true,
-    },
-    {
-      id: 3,
-      name: "Taylor Cruz",
-      email: "taylor@level.demo",
-      role: "Administrador",
-      active: true,
-    },
-  ]);
+  const [userRole, setUserRole] = useState(
+    sessionStorage.getItem("level_role"),
+  );
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [purchasedGames, setPurchasedGames] = useState<Game[]>([]);
   const [catalogGames, setCatalogGames] = useState<Game[]>(games);
 
@@ -2268,10 +2357,65 @@ export default function App() {
   useEffect(() => {
     const token = sessionStorage.getItem("level_token");
     if (token) {
-      setView("home");
+      const role = sessionStorage.getItem("level_role");
+      setUserRole(role);
       loadBackendData();
+      setView(
+        role === "ADMINISTRADOR"
+          ? "admin"
+          : role === "VENDEDOR"
+            ? "seller"
+            : "home",
+      );
     }
   }, []);
+
+  useEffect(() => {
+    if (userRole !== "ADMINISTRADOR") return;
+
+    getUsers()
+      .then(setUsers)
+      .catch((error) => {
+        console.error("No se pudieron cargar los usuarios:", error);
+      });
+    getAdminSales()
+      .then((sales) => {
+        setInvoices(
+          sales.map((sale) => ({
+            number: sale.numero_factura,
+            date: new Date(sale.fecha_emision).toLocaleString("es-SV"),
+            customerName: `${sale.nombre} ${sale.apellido}`,
+            customerEmail: sale.correo,
+            total: Number(sale.total),
+            items: sale.items.map((item) => ({
+              quantity: item.cantidad,
+              game: {
+                id: item.id_videojuego,
+                title: item.titulo,
+                price: Number(item.precio_unitario),
+                genre: "",
+                rating: "",
+                image: "",
+                stock: 0,
+                description: "",
+              },
+            })),
+          })),
+        );
+      })
+      .catch((error) => {
+        console.error("No se pudieron cargar las ventas:", error);
+      });
+  }, [userRole]);
+
+  function handleLogout() {
+    logout();
+    setUserRole(null);
+    setUsers([]);
+    setPurchasedGames([]);
+    setCart([]);
+    setView("login");
+  }
 
   function addToCart(game: Game) {
     if (game.stock === 0) return;
@@ -2368,77 +2512,73 @@ export default function App() {
       game: item.game,
       quantity: item.quantity,
     }));
+    const total = purchaseItems.reduce(
+      (sum, item) => sum + item.game.price * item.quantity,
+      0,
+    );
 
-    try {
-      const purchaseRes = await checkout(
-        purchaseItems.map((item) => ({
-          id_videojuego: item.game.id,
-          cantidad: item.quantity,
-        })),
-        "TARJETA",
-      );
+    const purchase = await checkout(
+      cart.map((item) => ({
+        id_videojuego: item.game.id,
+        cantidad: item.quantity,
+      })),
+    );
 
-      const invoiceRes = await generateInvoice(purchaseRes.id_compra);
-      await claimGames(purchaseRes.id_compra);
-
-      const newInvoice: Invoice = {
-        number: invoiceRes.factura.numero_factura,
-        date: new Date(invoiceRes.factura.fecha_emision).toLocaleString(
-          "es-SV",
-        ),
-        customerName,
-        customerEmail,
-        items: purchaseItems,
-        total: Number(invoiceRes.factura.total),
-      };
-
-      setInvoice(newInvoice);
-      setInvoices((previous) => [...previous, newInvoice]);
-      setCart([]);
-      setCartOpen(false);
-      await loadBackendData();
-      setView("invoice");
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        alert(error.response?.data?.error || "Error al procesar la compra.");
-      } else {
-        alert("Ocurrió un error inesperado al comprar.");
-      }
+    const purchaseId =
+      (purchase as { id_compra?: number }).id_compra ??
+      (purchase.factura as { id_compra?: number } | undefined)?.id_compra;
+    if (purchaseId) {
+      await claimGames(purchaseId).catch(() => {});
     }
-  }
 
-  function changeDemoUserRole(id: number, role: DemoUser["role"]) {
-    setDemoUsers((previous) =>
-      previous.map((user) => (user.id === id ? { ...user, role } : user)),
-    );
-  }
+    const newInvoice: Invoice = {
+      number: purchase.factura.numero_factura,
+      date: new Date(purchase.factura.fecha_emision).toLocaleString("es-SV"),
+      customerName,
+      customerEmail,
+      items: purchaseItems,
+      total: Number(purchase.factura.total ?? total),
+    };
+    setInvoice(newInvoice);
+    setInvoices((previous) => [...previous, newInvoice]);
 
-  function toggleDemoUser(id: number) {
-    setDemoUsers((previous) =>
-      previous.map((user) =>
-        user.id === id ? { ...user, active: !user.active } : user,
-      ),
-    );
+    setPurchasedGames((previous) => {
+      const existingIds = new Set(previous.map((game) => game.id));
+      const newlyPurchased = purchaseItems
+        .map((item) => item.game)
+        .filter((game) => !existingIds.has(game.id));
+
+      return [...previous, ...newlyPurchased];
+    });
+
+    setCart([]);
+    setCartOpen(false);
+    await loadBackendData();
+    setView("invoice");
   }
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
 
   let page: ReactNode;
   if (view === "login" || view === "register") {
-<<<<<<< Updated upstream
-    page = <AuthLayout mode={view} setView={setView} />;
-=======
     page = (
       <AuthLayout
         mode={view}
         setView={setView}
         onAuthenticated={async () => {
+          const role = sessionStorage.getItem("level_role");
+          setUserRole(role);
           await loadBackendData();
-          setView("home");
+          setView(
+            role === "ADMINISTRADOR"
+              ? "admin"
+              : role === "VENDEDOR"
+                ? "seller"
+                : "home",
+          );
         }}
       />
     );
->>>>>>> Stashed changes
   } else if (view === "details") {
     page = (
       <Details
@@ -2460,22 +2600,21 @@ export default function App() {
         search={search}
         setSearch={setSearch}
         purchasedGames={purchasedGames}
+        onLogout={handleLogout}
       />
     );
-  } else if (view === "admin") {
+  } else if (view === "admin" && userRole === "ADMINISTRADOR") {
     page = (
       <AdminDashboard
         products={catalogGames}
         invoices={invoices}
-        users={demoUsers}
-        onChangeRole={changeDemoUserRole}
-        onToggleUser={toggleDemoUser}
+        users={users}
         onUpdateProduct={updateProduct}
         onDeleteProduct={deleteProduct}
         onBack={() => setView("home")}
       />
     );
-  } else if (view === "seller") {
+  } else if (view === "seller" && userRole === "VENDEDOR") {
     page = (
       <SellerDashboard
         products={catalogGames}

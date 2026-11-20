@@ -76,8 +76,15 @@ export const createPurchase = async (req: AuthRequest, res: Response) => {
             );
         }
 
+        const invoiceRes = await client.query(
+            `INSERT INTO facturas (id_compra, numero_factura, subtotal, total)
+             VALUES ($1, $2, $3, $4)
+             RETURNING numero_factura, fecha_emision, total`,
+            [id_compra, `FAC-${Date.now()}-${id_compra}`, subtotalGlobal, totalGlobal]
+        );
+
         await client.query('COMMIT'); // CONFIRMA Y GUARDA TODO
-        res.status(201).json({ message: 'Compra realizada con éxito', id_compra, total: totalGlobal });
+        res.status(201).json({ message: 'Compra realizada con éxito', id_compra, factura: invoiceRes.rows[0] });
         
     } catch (error: any) {
         await client.query('ROLLBACK'); // SI ALGO FALLÓ, REVIERTE TODO PARA NO COBRAR DE MÁS NI DAÑAR EL STOCK
