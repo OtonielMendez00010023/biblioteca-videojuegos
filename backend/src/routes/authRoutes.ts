@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { register, login, getUsers } from '../controllers/authController.js';
+import { register, login, getProfile, getUsers, updateUserStatus } from '../controllers/authController.js';
 import { verifyToken, authorizeRoles } from '../middlewares/authMiddleware.js'; // <-- Importamos al guardia
 import type { AuthRequest } from '../middlewares/authMiddleware.js';
 
@@ -8,14 +8,10 @@ const router = Router();
 router.post('/register', register);
 router.post('/login', login);
 router.get('/users', verifyToken, authorizeRoles('ADMINISTRADOR'), getUsers);
+router.patch('/users/:id/status', verifyToken, authorizeRoles('ADMINISTRADOR'), updateUserStatus);
 
 // NUEVA RUTA DE PRUEBA PROTEGIDA: Solo usuarios logueados pueden entrar
-router.get('/perfil', verifyToken, (req: AuthRequest, res) => {
-    res.json({ 
-        message: '¡Pasaste al área segura!', 
-        usuario_conectado: req.user 
-    });
-});
+router.get('/perfil', verifyToken, getProfile);
 
 // NUEVA RUTA DE PRUEBA ADMIN: Solo administradores pueden entrar[cite: 12]
 router.get('/panel-admin', verifyToken, authorizeRoles('ADMINISTRADOR'), (req: AuthRequest, res) => {

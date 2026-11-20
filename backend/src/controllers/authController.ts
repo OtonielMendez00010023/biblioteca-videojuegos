@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { pool } from '../config/database.js';
+import type { AuthRequest } from '../middlewares/authMiddleware.js';
 
 
 export const register = async (req: Request, res: Response) => {
@@ -110,5 +111,40 @@ export const getUsers = async (_req: Request, res: Response) => {
     } catch (error) {
         console.error('Error al obtener usuarios:', error);
         return res.status(500).json({ error: 'Error al obtener los usuarios' });
+    }
+};
+
+export const getProfile = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await pool.query(
+            `SELECT u.id_usuario, u.nombre, u.apellido, u.correo, u.fecha_registro, r.nombre AS rol
+             FROM usuarios u JOIN roles r ON r.id_rol = u.id_rol
+             WHERE u.id_usuario = $1`,
+            [req.user?.id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+        return res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error al obtener perfil:', error);
+        return res.status(500).json({ error: 'Error al obtener el perfil' });
+    }
+};
+
+export const updateUserStatus = async (req: AuthRequest, res: Response) => {
+    const id = Number(req.params.id);
+    const { estado } = req.body;
+    if (!['ACTIVO', 'BLOQUEADO', 'INACTIVO'].includes(estado)) return res.status(400).json({ error: 'Estado no válido' });
+    if (id === req.user?.id) return res.status(400).json({ error: 'No puedes modificar tu propia cuenta.' });
+    try {
+        const result = await pool.query(
+            `UPDATE usuarios u SET estado = $1
+             FROM roles r
+             WHERE u.id_usuario = $2 AND r.id_rol = u.id_rol AND r.nombre <> 'ADMINISTRADOR'
+             RETURNING u.id_usuario, u.estado`, [estado, id]
+        );
+        if (!result.rows.length) return res.status(404).json({ error: 'Usuario no encontrado o administrador protegido.' });
+        return res.json({ message: 'Estado actualizado', user: result.rows[0] });
+    } catch (error) {
+        return res.status(500).json({ error: 'No se pudo actualizar el usuario' });
     }
 };

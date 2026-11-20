@@ -187,6 +187,16 @@ Esto permite conservar la información aunque el contenedor se detenga o se rein
 
 No utilizar `docker compose down -v` para detener el servicio normalmente, ya que puede eliminar el volumen y sus datos.
 
+### Portadas locales iniciales
+
+Para precargar portadas con Docker, agrega archivos `.webp`, `.jpg` o `.png` en `database/assets/` siguiendo los nombres documentados en `database/assets/README.md`. Durante una inicialización nueva, `10_seed_imagenes.sh` los convierte a Base64 y los guarda en PostgreSQL.
+
+En una base ya existente, después de añadir o reemplazar archivos, ejecuta:
+
+```bash
+docker compose exec postgres bash /docker-entrypoint-initdb.d/10_seed_imagenes.sh
+```
+
 ## 11. Índices
 
 Se configuraron índices para optimizar consultas frecuentes y búsquedas relacionadas con usuarios, videojuegos, compras, facturas y biblioteca.

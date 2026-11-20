@@ -1,12 +1,15 @@
 import axios from "axios";
 import {
   getUsers,
+  updateUserStatus,
   login,
   logout,
   register,
+  getProfile,
   type AdminUser,
+  type UserProfile,
 } from "./services/authService";
-import { checkout, getAdminSales } from "./services/commerceService";
+import { checkout, getAdminSales, getVendorSales } from "./services/commerceService";
 import {
   getGames,
   createGame,
@@ -49,6 +52,8 @@ type Game = {
   studio?: string;
   tagline?: string;
   isSellerProduct?: boolean;
+  ownerId?: number;
+  platforms?: string[];
 };
 
 type CartItem = {
@@ -68,8 +73,10 @@ type Invoice = {
 function mapBackendGameToUI(item: BackendGame): Game {
   return {
     id: item.id_videojuego,
+    ownerId: item.id_vendedor,
+    platforms: item.plataformas || [],
     title: item.titulo,
-    genre: item.estudio ? `${item.estudio} • Catálogo` : "Catálogo LEVEL",
+    genre: item.categorias || "Sin etiquetas",
     rating: "9.0",
     image: item.imagen || images.hero,
     price: Number(item.precio),
@@ -316,6 +323,12 @@ function Navbar({
   const isBuyer = role === "COMPRADOR";
   const isSeller = role === "VENDEDOR";
   const isAdmin = role === "ADMINISTRADOR";
+  const initials = sessionStorage.getItem("level_user_initials") || "LV";
+
+  function handleNavbarLogout() {
+    logout();
+    window.location.reload();
+  }
 
   function navigate(view: View) {
     setView(view);
@@ -330,11 +343,9 @@ function Navbar({
           <button onClick={() => navigate("home")} type="button">
             Explorar
           </button>
-          {isBuyer && (
-            <button onClick={() => navigate("profile")} type="button">
-              Mi biblioteca
-            </button>
-          )}
+          <button onClick={() => navigate("profile")} type="button">
+            Mi perfil
+          </button>
           {isSeller && (
             <button onClick={() => navigate("seller")} type="button">
               Vendedor
@@ -369,17 +380,18 @@ function Navbar({
             )}
           </button>
         )}
-        {isBuyer && (
-          <button
-            className="avatar-button"
-            onClick={() => navigate("profile")}
-            type="button"
-            aria-label="Abrir perfil"
-          >
-            <span>LM</span>
-            <i aria-hidden="true" />
-          </button>
-        )}
+        <button className="nav-logout" onClick={handleNavbarLogout} type="button">
+          <Icon name="logout" size={17} /> Cerrar sesión
+        </button>
+        <button
+          className="avatar-button"
+          onClick={() => navigate("profile")}
+          type="button"
+          aria-label="Abrir perfil"
+        >
+          <span>{initials}</span>
+          <i aria-hidden="true" />
+        </button>
         <button
           className={`mobile-menu-toggle ${mobileMenuOpen ? "is-open" : ""}`}
           onClick={() => setMobileMenuOpen((open) => !open)}
@@ -402,11 +414,9 @@ function Navbar({
           <button onClick={() => navigate("home")} type="button">
             Explorar
           </button>
-          {isBuyer && (
-            <button onClick={() => navigate("profile")} type="button">
-              Mi biblioteca
-            </button>
-          )}
+          <button onClick={() => navigate("profile")} type="button">
+            Mi perfil
+          </button>
           {isSeller && (
             <button onClick={() => navigate("seller")} type="button">
               Vendedor
@@ -417,6 +427,7 @@ function Navbar({
               Administración
             </button>
           )}
+          <button onClick={handleNavbarLogout} type="button">Cerrar sesión</button>
         </nav>
       )}
     </header>
@@ -566,19 +577,6 @@ function AuthLayout({
             />
           )}
 
-          {isLogin && (
-            <div className="form-row">
-              <label className="remember">
-                <input type="checkbox" />
-                <span>Recordarme</span>
-              </label>
-
-              <button className="text-link" type="button">
-                ¿Olvidaste tu contraseña?
-              </button>
-            </div>
-          )}
-
           {error && (
             <p role="alert" style={{ color: "#f87171" }}>
               {error}
@@ -717,6 +715,7 @@ function Home({
   const visibleGames = catalogGames.filter((game) =>
     game.title.toLowerCase().includes(search.toLowerCase()),
   );
+  const featuredGame = catalogGames[0];
 
   return (
     <div className="app-shell">
@@ -729,33 +728,18 @@ function Home({
       />
       <main className="page-container">
         <section className="hero">
-          <img src={images.hero} alt="" />
+          {featuredGame && <img src={featuredGame.image} alt={`Portada de ${featuredGame.title}`} />}
           <div className="hero-overlay" />
           <div className="hero-content">
             <span className="feature-label">
               <i /> DESTACADO DE LA SEMANA
             </span>
-            <h1>NEON ECLIPSE</h1>
-            <p>La ciudad nunca duerme. Tú tampoco deberías.</p>
-            <button
-              className="primary-button"
-              onClick={() => {
-                const featured =
-                  catalogGames.find(
-                    (item) => item.title.toLowerCase() === "neon eclipse",
-                  ) ?? catalogGames[0];
-                if (featured) setSelectedGameId(featured.id);
-                setView("details");
-              }}
-              type="button"
-            >
-              Ver más <Icon name="arrow" size={18} />
-            </button>
+            <h1>{featuredGame ? featuredGame.title.toUpperCase() : "CATÁLOGO LEVEL"}</h1>
+            <p>{featuredGame?.tagline || featuredGame?.description || "Agrega videojuegos desde la base de datos para verlos aquí."}</p>
+            {featuredGame && <button className="primary-button" onClick={() => { setSelectedGameId(featuredGame.id); setView("details"); }} type="button">Ver más <Icon name="arrow" size={18} /></button>}
           </div>
           <div className="hero-meta">
-            <span>RPG</span>
-            <span>Mundo abierto</span>
-            <span>2025</span>
+            {(featuredGame?.genre.split("•").map((tag) => tag.trim()).filter(Boolean).slice(0, 3) ?? ["Sin etiquetas"]).map((tag) => <span key={tag}>{tag}</span>)}
           </div>
         </section>
 
@@ -870,17 +854,10 @@ function Details({
               <p className="detail-tagline">
                 {game.tagline?.trim() || "Una nueva aventura te espera."}
               </p>
-              <p className="synopsis">
-                {game.description} Sumérgete en Nova Prime, una metrópolis donde
-                cada decisión altera el equilibrio entre humanos y máquinas.
-              </p>
+              <p className="synopsis">{game.description}</p>
               <div className="detail-block">
                 <span>PLATAFORMAS</span>
-                <div className="tags">
-                  <b>PC</b>
-                  <b>PS5</b>
-                  <b>XBOX SERIES</b>
-                </div>
+                <div className="tags">{(game.platforms ?? []).map((platform) => <b key={platform}>{platform}</b>)}</div>
               </div>
               <div className="detail-block">
                 <span>GÉNEROS</span>
@@ -924,6 +901,7 @@ function Profile({
   search,
   setSearch,
   purchasedGames,
+  profile,
   onLogout,
 }: {
   setView: (view: View) => void;
@@ -931,18 +909,22 @@ function Profile({
   search: string;
   setSearch: (value: string) => void;
   purchasedGames: Game[];
+  profile: UserProfile | null;
   onLogout: () => void;
 }) {
+  const roleLabel = profile?.rol === "VENDEDOR" ? "VENDEDOR LEVEL" : profile?.rol === "ADMINISTRADOR" ? "ADMINISTRADOR LEVEL" : "JUGADOR LEVEL";
+  const fullName = profile ? `${profile.nombre} ${profile.apellido}` : "Cargando perfil...";
+  const initials = profile ? `${profile.nombre[0] ?? ""}${profile.apellido[0] ?? ""}`.toUpperCase() : "LV";
   return (
     <div className="app-shell">
       <Navbar setView={setView} search={search} setSearch={setSearch} />
       <main className="page-container profile-page">
         <section className="profile-header">
-          <div className="profile-avatar">LM</div>
+          <div className="profile-avatar">{initials}</div>
           <div className="profile-identity">
-            <span className="eyebrow">JUGADOR LEVEL</span>
-            <h1>Lucas Mendez</h1>
-            <p>@lucasplays</p>
+            <span className="eyebrow">{roleLabel}</span>
+            <h1>{fullName}</h1>
+            <p>{profile?.correo ?? ""}</p>
           </div>
           <div className="profile-stats">
             <div>
@@ -950,21 +932,12 @@ function Profile({
               <span>Juegos en biblioteca</span>
             </div>
             <div>
-              <strong>482</strong>
-              <span>Horas jugadas</span>
+              <strong>{profile?.rol ?? "—"}</strong>
+              <span>Rol de cuenta</span>
             </div>
             <div>
-              <strong>
-                {purchasedGames.length > 0
-                  ? (
-                      purchasedGames.reduce(
-                        (sum, game) => sum + Number(game.rating),
-                        0,
-                      ) / purchasedGames.length
-                    ).toFixed(1)
-                  : "—"}
-              </strong>
-              <span>Nota promedio</span>
+              <strong>{profile?.fecha_registro ? new Date(profile.fecha_registro).toLocaleDateString("es-SV") : "—"}</strong>
+              <span>Miembro desde</span>
             </div>
           </div>
         </section>
@@ -1031,12 +1004,14 @@ function SellerDashboard({
   onUpdate,
   onDelete,
   onBack,
+  sales,
 }: {
   products: Game[];
   onAdd: (product: Omit<Game, "id">) => void;
   onUpdate: (product: Game) => void;
   onDelete: (id: number) => void;
   onBack: () => void;
+  sales: Invoice[];
 }) {
   const emptyForm = {
     title: "",
@@ -1047,6 +1022,7 @@ function SellerDashboard({
     stock: "",
     description: "",
     image: "",
+    platforms: [] as string[],
   };
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -1054,6 +1030,20 @@ function SellerDashboard({
   const [imageError, setImageError] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
+  const [tagInput, setTagInput] = useState("");
+
+  const tags = form.genre.split("•").map((tag) => tag.trim()).filter(Boolean);
+
+  function addTag() {
+    const tag = tagInput.trim();
+    if (!tag || tags.some((current) => current.toLocaleLowerCase() === tag.toLocaleLowerCase())) return;
+    setForm({ ...form, genre: [...tags, tag].join(" • ") });
+    setTagInput("");
+  }
+
+  function removeTag(tag: string) {
+    setForm({ ...form, genre: tags.filter((current) => current !== tag).join(" • ") });
+  }
 
   const previewGame: Game = {
     id: editingId ?? -1,
@@ -1071,6 +1061,7 @@ function SellerDashboard({
       "Aquí aparecerá la descripción del videojuego.",
     rating: "9.0",
     image: form.image,
+    platforms: form.platforms,
     isSellerProduct: true,
   };
 
@@ -1111,6 +1102,7 @@ function SellerDashboard({
     setError("");
     setImageError("");
     setPreviewOpen(false);
+    setTagInput("");
     setFileInputKey((key) => key + 1);
   }
 
@@ -1124,6 +1116,7 @@ function SellerDashboard({
       !form.studio.trim() ||
       !form.tagline.trim() ||
       !form.genre.trim() ||
+      form.platforms.length === 0 ||
       !form.description.trim()
     ) {
       setError(
@@ -1160,6 +1153,7 @@ function SellerDashboard({
         stock,
         description: form.description.trim(),
         image: form.image,
+        platforms: form.platforms,
       });
     } else {
       onAdd({
@@ -1172,6 +1166,7 @@ function SellerDashboard({
         description: form.description.trim(),
         rating: "—",
         image: form.image,
+        platforms: form.platforms,
         isSellerProduct: true,
       });
     }
@@ -1190,6 +1185,7 @@ function SellerDashboard({
       stock: String(product.stock),
       description: product.description,
       image: product.image,
+      platforms: product.platforms,
     });
     setError("");
     setImageError("");
@@ -1235,6 +1231,7 @@ function SellerDashboard({
                 {products.filter((product) => product.stock === 0).length}
               </strong>
             </div>
+            <div><span>Ventas realizadas</span><strong>{sales.length}</strong></div>
           </div>
 
           <section className="seller-panel seller-create-panel">
@@ -1291,17 +1288,17 @@ function SellerDashboard({
                     required
                   />
                 </label>
-                <label className="field">
-                  <span>Género</span>
-                  <input
-                    value={form.genre}
-                    onChange={(event) =>
-                      setForm({ ...form, genre: event.target.value })
-                    }
-                    placeholder="Ej. Acción • Aventura"
-                    required
-                  />
-                </label>
+                <div className="field">
+                  <span>Etiquetas del videojuego</span>
+                  <div className="tag-entry">
+                    <input value={tagInput} onChange={(event) => setTagInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addTag(); } }} placeholder="Ej. Acción" />
+                    <button type="button" onClick={addTag}>Agregar</button>
+                  </div>
+                  <div className="seller-tags" aria-live="polite">
+                    {tags.length ? tags.map((tag) => <button type="button" key={tag} onClick={() => removeTag(tag)} aria-label={`Quitar etiqueta ${tag}`}>{tag} ×</button>) : <small>Agrega una etiqueta a la vez.</small>}
+                  </div>
+                </div>
+                <fieldset className="field"><span>Plataformas disponibles</span><div className="seller-tags">{["PC", "PS5", "XBOX SERIES", "NINTENDO SWITCH"].map((platform) => <label key={platform}><input type="checkbox" checked={form.platforms.includes(platform)} onChange={() => setForm({ ...form, platforms: form.platforms.includes(platform) ? form.platforms.filter((item) => item !== platform) : [...form.platforms, platform] })} /> {platform}</label>)}</div></fieldset>
                 <label className="field">
                   <span>Precio (USD)</span>
                   <input
@@ -1530,6 +1527,10 @@ function SellerDashboard({
               </div>
             )}
           </section>
+          <section className="seller-panel">
+            <div className="seller-section-heading"><div><span className="eyebrow">OPERACIONES</span><h2>Ventas de mis videojuegos</h2></div></div>
+            {sales.length ? <div className="admin-sales-list">{sales.map((sale) => <article className="admin-sale-card" key={sale.number}><div className="admin-sale-heading"><div><strong>{sale.number}</strong><span>{sale.date}</span></div><b>${sale.total.toFixed(2)}</b></div><div className="admin-sale-items">{sale.items.map((item) => <span key={`${sale.number}-${item.game.id}`}>{item.game.title} × {item.quantity}</span>)}</div></article>)}</div> : <p className="admin-empty">Aún no hay ventas de tus videojuegos.</p>}
+          </section>
         </div>
       </main>
 
@@ -1626,6 +1627,7 @@ function AdminDashboard({
   products,
   invoices,
   users,
+  onStatusChange,
   onUpdateProduct,
   onDeleteProduct,
   onBack,
@@ -1633,6 +1635,7 @@ function AdminDashboard({
   products: Game[];
   invoices: Invoice[];
   users: AdminUser[];
+  onStatusChange: (id: number, estado: AdminUser["estado"]) => void;
   onUpdateProduct: (product: Game) => void;
   onDeleteProduct: (id: number) => void;
   onBack: () => void;
@@ -1823,6 +1826,10 @@ function AdminDashboard({
                       <span>Rol</span>
                       <strong>{user.rol}</strong>
                     </div>
+                    {user.rol !== "ADMINISTRADOR" && <div className="admin-row-actions">
+                      {user.estado === "ACTIVO" ? <button type="button" className="admin-delete-button" onClick={() => onStatusChange(user.id_usuario, "BLOQUEADO")}>Bloquear</button> : <button type="button" onClick={() => onStatusChange(user.id_usuario, "ACTIVO")}>Activar</button>}
+                      <button type="button" className="admin-muted-button" onClick={() => onStatusChange(user.id_usuario, "INACTIVO")}>Desactivar</button>
+                    </div>}
                   </article>
                 ))}
               </div>
@@ -2103,10 +2110,10 @@ function Checkout({
 }: {
   cart: CartItem[];
   onBack: () => void;
-  onConfirm: (customerName: string, customerEmail: string) => Promise<void>;
+  onConfirm: (method: "TARJETA" | "BITCOIN", reference: string) => Promise<void>;
 }) {
-  const [customerName, setCustomerName] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("");
+  const [method, setMethod] = useState<"TARJETA" | "BITCOIN">("TARJETA");
+  const [paymentValue, setPaymentValue] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const total = cart.reduce(
@@ -2120,7 +2127,9 @@ function Checkout({
     setError("");
     setLoading(true);
     try {
-      await onConfirm(customerName.trim(), customerEmail.trim());
+      if (method === "TARJETA" && !/^\d{16}$/.test(paymentValue.replace(/\s/g, ""))) throw new Error("Ingresa los 16 dígitos de la tarjeta.");
+      if (method === "BITCOIN" && paymentValue.trim().length < 20) throw new Error("Ingresa una dirección Bitcoin válida.");
+      await onConfirm(method, paymentValue.trim());
     } catch (error) {
       setError(
         axios.isAxiosError(error)
@@ -2142,47 +2151,16 @@ function Checkout({
         <div className="checkout-heading">
           <span className="eyebrow">LEVEL STORE</span>
           <h1>Finalizar compra</h1>
-          <p>Revisa tu pedido e introduce tus datos para generar la factura.</p>
+          <p>Tu compra se asociará automáticamente a tu cuenta LEVEL.</p>
         </div>
 
         <div className="checkout-layout">
           <form className="checkout-form" onSubmit={submit}>
             <section className="checkout-panel">
-              <h2>Datos del comprador</h2>
-              <label className="field">
-                <span>Nombre completo</span>
-                <input
-                  value={customerName}
-                  onChange={(event) => setCustomerName(event.target.value)}
-                  placeholder="Ej. Lucas Méndez"
-                  required
-                  minLength={2}
-                />
-              </label>
-              <label className="field">
-                <span>Correo electrónico</span>
-                <input
-                  type="email"
-                  value={customerEmail}
-                  onChange={(event) => setCustomerEmail(event.target.value)}
-                  placeholder="tu@correo.com"
-                  required
-                />
-              </label>
-            </section>
-
-            <section className="checkout-panel">
               <h2>Método de pago</h2>
-              <div className="payment-notice">
-                <span>💳</span>
-                <div>
-                  <strong>Pago de demostración</strong>
-                  <p>
-                    No se realizará ningún cobro real. Esta opción permite
-                    probar el flujo de compra.
-                  </p>
-                </div>
-              </div>
+              <label className="field"><span>Selecciona un método</span><select value={method} onChange={(event) => { setMethod(event.target.value as "TARJETA" | "BITCOIN"); setPaymentValue(""); }}><option value="TARJETA">Tarjeta</option><option value="BITCOIN">Bitcoin</option></select></label>
+              <label className="field"><span>{method === "TARJETA" ? "Número de tarjeta" : "Dirección Bitcoin"}</span><input value={paymentValue} onChange={(event) => setPaymentValue(event.target.value)} inputMode={method === "TARJETA" ? "numeric" : "text"} placeholder={method === "TARJETA" ? "1234 5678 9012 3456" : "bc1..."} required /></label>
+              <p className="checkout-disclaimer">Los datos de pago se validan solo para esta simulación y no se almacenan.</p>
             </section>
 
             {error && (
@@ -2300,22 +2278,31 @@ function InvoicePage({
 
 export default function App() {
   const [view, setView] = useState<View>("login");
-  const [selectedGameId, setSelectedGameId] = useState<number | null>(
-    games[0]?.id ?? null,
-  );
+  const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [vendorSales, setVendorSales] = useState<Invoice[]>([]);
   const [userRole, setUserRole] = useState(
     sessionStorage.getItem("level_role"),
   );
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [purchasedGames, setPurchasedGames] = useState<Game[]>([]);
-  const [catalogGames, setCatalogGames] = useState<Game[]>(games);
+  const [catalogGames, setCatalogGames] = useState<Game[]>([]);
 
   async function loadBackendData() {
+    try {
+      const currentProfile = await getProfile();
+      setProfile(currentProfile);
+      sessionStorage.setItem("level_user_name", `${currentProfile.nombre} ${currentProfile.apellido}`);
+      sessionStorage.setItem("level_user_initials", `${currentProfile.nombre[0] ?? ""}${currentProfile.apellido[0] ?? ""}`.toUpperCase());
+    } catch (error) {
+      console.error("No se pudo cargar el perfil:", error);
+    }
+
     try {
       const backendGames = await getGames();
       const mappedGames = backendGames.map(mapBackendGameToUI);
@@ -2360,13 +2347,7 @@ export default function App() {
       const role = sessionStorage.getItem("level_role");
       setUserRole(role);
       loadBackendData();
-      setView(
-        role === "ADMINISTRADOR"
-          ? "admin"
-          : role === "VENDEDOR"
-            ? "seller"
-            : "home",
-      );
+      setView("home");
     }
   }, []);
 
@@ -2408,10 +2389,23 @@ export default function App() {
       });
   }, [userRole]);
 
+  useEffect(() => {
+    if (userRole !== "VENDEDOR") return;
+    getVendorSales().then((sales) => setVendorSales(sales.map((sale) => ({
+      number: sale.numero_factura,
+      date: new Date(sale.fecha_emision).toLocaleString("es-SV"),
+      customerName: `${sale.nombre} ${sale.apellido}`,
+      customerEmail: sale.correo,
+      total: Number(sale.total),
+      items: sale.items.map((item) => ({ quantity: item.cantidad, game: { id: item.id_videojuego, title: item.titulo, price: Number(item.precio_unitario), genre: "", rating: "", image: "", stock: 0, description: "" } })),
+    })))).catch((error) => console.error("No se pudieron cargar las ventas del vendedor:", error));
+  }, [userRole]);
+
   function handleLogout() {
     logout();
     setUserRole(null);
     setUsers([]);
+    setProfile(null);
     setPurchasedGames([]);
     setCart([]);
     setView("login");
@@ -2470,6 +2464,7 @@ export default function App() {
         stock: product.stock,
         imagen: product.image,
         categorias: mapGenreToCategoryIds(product.genre),
+        plataformas: product.platforms ?? ["PC"],
       });
       await loadBackendData();
     } catch (error) {
@@ -2505,7 +2500,14 @@ export default function App() {
     }
   }
 
-  async function completePurchase(customerName: string, customerEmail: string) {
+  async function changeUserStatus(id: number, estado: AdminUser["estado"]) {
+    try {
+      await updateUserStatus(id, estado);
+      setUsers((previous) => previous.map((user) => user.id_usuario === id ? { ...user, estado } : user));
+    } catch (error) { alert("No se pudo actualizar el estado del usuario."); }
+  }
+
+  async function completePurchase(method: "TARJETA" | "BITCOIN", reference: string) {
     if (cart.length === 0) return;
 
     const purchaseItems = cart.map((item) => ({
@@ -2521,7 +2523,7 @@ export default function App() {
       cart.map((item) => ({
         id_videojuego: item.game.id,
         cantidad: item.quantity,
-      })),
+      })), method, reference,
     );
 
     const purchaseId =
@@ -2534,8 +2536,8 @@ export default function App() {
     const newInvoice: Invoice = {
       number: purchase.factura.numero_factura,
       date: new Date(purchase.factura.fecha_emision).toLocaleString("es-SV"),
-      customerName,
-      customerEmail,
+      customerName: profile ? `${profile.nombre} ${profile.apellido}` : "Comprador LEVEL",
+      customerEmail: profile?.correo ?? "",
       items: purchaseItems,
       total: Number(purchase.factura.total ?? total),
     };
@@ -2569,13 +2571,7 @@ export default function App() {
           const role = sessionStorage.getItem("level_role");
           setUserRole(role);
           await loadBackendData();
-          setView(
-            role === "ADMINISTRADOR"
-              ? "admin"
-              : role === "VENDEDOR"
-                ? "seller"
-                : "home",
-          );
+          setView("home");
         }}
       />
     );
@@ -2600,6 +2596,7 @@ export default function App() {
         search={search}
         setSearch={setSearch}
         purchasedGames={purchasedGames}
+        profile={profile}
         onLogout={handleLogout}
       />
     );
@@ -2609,6 +2606,7 @@ export default function App() {
         products={catalogGames}
         invoices={invoices}
         users={users}
+        onStatusChange={changeUserStatus}
         onUpdateProduct={updateProduct}
         onDeleteProduct={deleteProduct}
         onBack={() => setView("home")}
@@ -2617,11 +2615,12 @@ export default function App() {
   } else if (view === "seller" && userRole === "VENDEDOR") {
     page = (
       <SellerDashboard
-        products={catalogGames}
+        products={catalogGames.filter((product) => product.ownerId === profile?.id_usuario)}
         onAdd={addProduct}
         onUpdate={updateProduct}
         onDelete={deleteProduct}
         onBack={() => setView("home")}
+        sales={vendorSales}
       />
     );
   } else if (view === "checkout") {

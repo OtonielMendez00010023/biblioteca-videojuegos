@@ -32,6 +32,15 @@ export interface AdminUser {
   estado: "ACTIVO" | "INACTIVO" | "BLOQUEADO";
 }
 
+export interface UserProfile {
+  id_usuario: number;
+  nombre: string;
+  apellido: string;
+  correo: string;
+  rol: "COMPRADOR" | "VENDEDOR" | "ADMINISTRADOR";
+  fecha_registro: string;
+}
+
 export async function login(
   correo: string,
   password: string
@@ -63,7 +72,18 @@ export async function getUsers(): Promise<AdminUser[]> {
   return response.data;
 }
 
+export async function getProfile(): Promise<UserProfile> {
+  const response = await api.get<UserProfile>("/auth/perfil");
+  return response.data;
+}
+
+export async function updateUserStatus(id: number, estado: AdminUser["estado"]): Promise<void> {
+  await api.patch(`/auth/users/${id}/status`, { estado });
+}
+
 export function logout(): void {
   sessionStorage.removeItem("level_token");
   sessionStorage.removeItem("level_role");
+  sessionStorage.removeItem("level_user_name");
+  sessionStorage.removeItem("level_user_initials");
 }

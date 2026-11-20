@@ -12,8 +12,10 @@ export interface BackendGame {
   imagen: string | null;
   estado: string;
   fecha_publicacion: string;
+  plataformas: string[];
   nombre_vendedor?: string;
   apellido_vendedor?: string;
+  categorias?: string;
 }
 
 export interface CreateGamePayload {
@@ -25,6 +27,7 @@ export interface CreateGamePayload {
   stock: number;
   imagen: string;
   categorias: number[];
+  plataformas: string[];
 }
 
 export interface UpdateGamePayload {

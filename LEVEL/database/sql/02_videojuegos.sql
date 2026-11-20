@@ -22,6 +22,7 @@ CREATE TABLE videojuegos (
         CHECK (stock >= 0),
 
     imagen TEXT,
+    plataformas TEXT[] NOT NULL DEFAULT ARRAY['PC']::TEXT[],
 
     estado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO'
         CHECK (estado IN ('ACTIVO', 'INACTIVO')),

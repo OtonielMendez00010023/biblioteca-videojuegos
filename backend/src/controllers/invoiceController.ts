@@ -43,6 +43,20 @@ export const getAdminSales = async (_req: AuthRequest, res: Response) => {
     }
 };
 
+export const getVendorSales = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await pool.query(
+            `SELECT f.numero_factura, f.fecha_emision, f.total, u.nombre, u.apellido, u.correo,
+                    COALESCE(json_agg(json_build_object('id_videojuego', d.id_videojuego, 'titulo', v.titulo, 'cantidad', d.cantidad, 'precio_unitario', d.precio_unitario) ORDER BY d.id_detalle_compra) FILTER (WHERE d.id_detalle_compra IS NOT NULL), '[]'::json) AS items
+             FROM facturas f JOIN compras c ON c.id_compra = f.id_compra JOIN usuarios u ON u.id_usuario = c.id_usuario
+             JOIN detalle_compra d ON d.id_compra = c.id_compra JOIN videojuegos v ON v.id_videojuego = d.id_videojuego
+             WHERE f.estado = 'EMITIDA' AND c.estado = 'COMPLETADA' AND v.id_vendedor = $1
+             GROUP BY f.id_factura, u.id_usuario ORDER BY f.fecha_emision DESC`, [req.user?.id]
+        );
+        return res.json(result.rows);
+    } catch (error) { return res.status(500).json({ error: 'Error al obtener las ventas del vendedor' }); }
+};
+
 // 2. VULNERABILIDAD INTENCIONAL: IDOR xd 
 export const getInvoiceById = async (req: AuthRequest, res: Response) => {
     const { id } = req.params; // Este es el número que viene en la URL (ej. /api/facturas/3)

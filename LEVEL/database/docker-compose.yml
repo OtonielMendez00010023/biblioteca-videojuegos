@@ -20,6 +20,7 @@ services:
     volumes:
       - level_data:/var/lib/postgresql/data
       - ./sql:/docker-entrypoint-initdb.d:ro
+      - ./assets:/seed-assets:ro
 
     networks:
       - level_network
