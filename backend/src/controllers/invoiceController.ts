@@ -57,6 +57,13 @@ export const getVendorSales = async (req: AuthRequest, res: Response) => {
     } catch (error) { return res.status(500).json({ error: 'Error al obtener las ventas del vendedor' }); }
 };
 
+export const getMyInvoices = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await pool.query(`SELECT f.id_factura, f.numero_factura, f.fecha_emision, f.total, f.estado, c.id_compra, c.metodo_pago, COUNT(d.id_detalle_compra)::int AS cantidad_productos FROM facturas f JOIN compras c ON c.id_compra=f.id_compra LEFT JOIN detalle_compra d ON d.id_compra=c.id_compra WHERE c.id_usuario=$1 GROUP BY f.id_factura,c.id_compra ORDER BY f.fecha_emision DESC`, [req.user?.id]);
+        return res.json(result.rows);
+    } catch { return res.status(500).json({ error: 'Error al obtener facturas' }); }
+};
+
 // 2. VULNERABILIDAD INTENCIONAL: IDOR xd 
 export const getInvoiceById = async (req: AuthRequest, res: Response) => {
     const { id } = req.params; // Este es el número que viene en la URL (ej. /api/facturas/3)
@@ -66,11 +73,9 @@ export const getInvoiceById = async (req: AuthRequest, res: Response) => {
         // Buscamos la factura en la base de datos usando SOLO el parámetro de la URL.
         // FALTA ESTO: "AND c.id_usuario = req.user.id" <-- Al no incluir esto, confiamos ciegamente.
         const result = await pool.query(
-            `SELECT f.id_factura, f.numero_factura, f.fecha_emision, f.total, c.id_usuario, u.correo AS correo_comprador
-             FROM facturas f
-             JOIN compras c ON f.id_compra = c.id_compra
-             JOIN usuarios u ON c.id_usuario = u.id_usuario
-             WHERE f.id_factura = $1`,
+            `SELECT f.id_factura, f.numero_factura, f.fecha_emision, f.subtotal, f.total, f.estado AS estado_factura, c.id_compra, c.fecha_compra, c.metodo_pago, c.nombre_facturacion, c.correo_facturacion, c.documento_identidad, c.direccion_facturacion, p.referencia_pago, p.titular_tarjeta, p.vencimiento_tarjeta, p.cvv_demo, p.referencia_transaccion, COALESCE(json_agg(json_build_object('titulo',v.titulo,'cantidad',d.cantidad,'precio_unitario',d.precio_unitario,'subtotal',d.subtotal)) FILTER (WHERE d.id_detalle_compra IS NOT NULL),'[]'::json) AS productos
+             FROM facturas f JOIN compras c ON f.id_compra=c.id_compra LEFT JOIN pagos_demo p ON p.id_compra=c.id_compra LEFT JOIN detalle_compra d ON d.id_compra=c.id_compra LEFT JOIN videojuegos v ON v.id_videojuego=d.id_videojuego
+             WHERE f.id_factura = $1 GROUP BY f.id_factura,c.id_compra,p.id_pago`,
             [id]
         );
 
