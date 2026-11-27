@@ -9,7 +9,7 @@ import {
   type AdminUser,
   type UserProfile,
 } from "./services/authService";
-import { checkout, getAdminSales, getVendorSales } from "./services/commerceService";
+import { checkout, getAdminSales, getVendorSales, getInvoiceDetail, getMyInvoices, type InvoiceDetail, type MyInvoice } from "./services/commerceService";
 import {
   getGames,
   createGame,
@@ -35,6 +35,8 @@ type View =
   | "home"
   | "details"
   | "profile"
+  | "invoices"
+  | "invoiceDetail"
   | "checkout"
   | "invoice"
   | "seller"
@@ -346,6 +348,11 @@ function Navbar({
           <button onClick={() => navigate("profile")} type="button">
             Mi perfil
           </button>
+          {isBuyer && (
+            <button onClick={() => navigate("invoices")} type="button">
+              Mis facturas
+            </button>
+          )}
           {isSeller && (
             <button onClick={() => navigate("seller")} type="button">
               Vendedor
@@ -417,6 +424,7 @@ function Navbar({
           <button onClick={() => navigate("profile")} type="button">
             Mi perfil
           </button>
+          {isBuyer && <button onClick={() => navigate("invoices")} type="button">Mis facturas</button>}
           {isSeller && (
             <button onClick={() => navigate("seller")} type="button">
               Vendedor
@@ -771,7 +779,7 @@ function Home({
             <div className="empty-state">
               <Icon name="search" size={28} />
               <h3>No encontramos ese juego</h3>
-              <p>Prueba con otro nombre para seguir explorando.</p>
+              <p>Intenta con otro nombre para seguir explorando.</p>
             </div>
           )}
         </section>
@@ -1753,7 +1761,7 @@ function AdminDashboard({
                   <small>{unitsSold} unidades vendidas</small>
                 </article>
                 <article>
-                  <span>Ingresos simulados</span>
+                  <span>Ingresos totales</span>
                   <strong>${revenue.toFixed(2)}</strong>
                   <small>Acumulado de las facturas</small>
                 </article>
@@ -1764,7 +1772,7 @@ function AdminDashboard({
                 {invoices.length === 0 ? (
                   <p className="admin-empty">
                     Todavía no hay ventas registradas. Las compras de
-                    demostración aparecerán aquí.
+                    ventas aparecerán aquí.
                   </p>
                 ) : (
                   <div className="admin-list">
@@ -1946,7 +1954,7 @@ function AdminDashboard({
               </div>
               {invoices.length === 0 ? (
                 <p className="admin-empty">
-                  No hay facturas todavía. Realiza una compra de demostración
+                  No hay facturas todavía. Realiza una compra
                   para llenar este historial.
                 </p>
               ) : (
@@ -1978,9 +1986,7 @@ function AdminDashboard({
             </section>
           )}
           <p className="admin-disclaimer">
-            Panel de demostración: los cambios se mantienen únicamente mientras
-            la aplicación está abierta. Los permisos reales deberán validarse en
-            el backend.
+            Gestiona usuarios, catálogo y ventas desde un solo lugar.
           </p>
         </div>
       </main>
@@ -2107,13 +2113,17 @@ function Checkout({
   cart,
   onBack,
   onConfirm,
+  profile,
 }: {
   cart: CartItem[];
   onBack: () => void;
-  onConfirm: (method: "TARJETA" | "BITCOIN", reference: string) => Promise<void>;
+  onConfirm: (data: any) => Promise<void>;
+  profile: UserProfile | null;
 }) {
   const [method, setMethod] = useState<"TARJETA" | "BITCOIN">("TARJETA");
   const [paymentValue, setPaymentValue] = useState("");
+  const [billing, setBilling] = useState({ direccion: "" });
+  const [card, setCard] = useState({ titular: "", vencimiento: "", cvv: "", referencia_transaccion: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const total = cart.reduce(
@@ -2129,12 +2139,15 @@ function Checkout({
     try {
       if (method === "TARJETA" && !/^\d{16}$/.test(paymentValue.replace(/\s/g, ""))) throw new Error("Ingresa los 16 dígitos de la tarjeta.");
       if (method === "BITCOIN" && paymentValue.trim().length < 20) throw new Error("Ingresa una dirección Bitcoin válida.");
-      await onConfirm(method, paymentValue.trim());
+      if (!billing.direccion.trim()) throw new Error("Ingresa la dirección de facturación.");
+      await onConfirm({ method, reference: paymentValue.trim(), facturacion: billing, pago_demo: card });
     } catch (error) {
       setError(
         axios.isAxiosError(error)
           ? (error.response?.data?.error ?? "No se pudo registrar la compra.")
-          : "No se pudo registrar la compra.",
+          : error instanceof Error
+            ? error.message
+            : "No se pudo registrar la compra.",
       );
     } finally {
       setLoading(false);
@@ -2157,10 +2170,18 @@ function Checkout({
         <div className="checkout-layout">
           <form className="checkout-form" onSubmit={submit}>
             <section className="checkout-panel">
+              <h2>Datos de facturación</h2>
+              <label className="field"><span>Nombre completo</span><input value={profile ? `${profile.nombre} ${profile.apellido}` : "Cargando cuenta..."} readOnly /></label>
+              <label className="field"><span>Correo electrónico</span><input value={profile?.correo ?? ""} readOnly /></label>
+              <label className="field"><span>Dirección de facturación</span><input value={billing.direccion} onChange={(e) => setBilling({ direccion: e.target.value })} placeholder="Ej. Colonia, calle y número" required /></label>
+            </section>
+            <section className="checkout-panel">
               <h2>Método de pago</h2>
               <label className="field"><span>Selecciona un método</span><select value={method} onChange={(event) => { setMethod(event.target.value as "TARJETA" | "BITCOIN"); setPaymentValue(""); }}><option value="TARJETA">Tarjeta</option><option value="BITCOIN">Bitcoin</option></select></label>
               <label className="field"><span>{method === "TARJETA" ? "Número de tarjeta" : "Dirección Bitcoin"}</span><input value={paymentValue} onChange={(event) => setPaymentValue(event.target.value)} inputMode={method === "TARJETA" ? "numeric" : "text"} placeholder={method === "TARJETA" ? "1234 5678 9012 3456" : "bc1..."} required /></label>
-              <p className="checkout-disclaimer">Los datos de pago se validan solo para esta simulación y no se almacenan.</p>
+              {method === "TARJETA" && <><label className="field"><span>Titular</span><input value={card.titular} onChange={(e) => setCard({...card,titular:e.target.value})} required /></label><label className="field"><span>Vencimiento / CVV</span><input value={card.vencimiento} onChange={(e) => setCard({...card,vencimiento:e.target.value})} placeholder="MM/AA" required /><input value={card.cvv} onChange={(e) => setCard({...card,cvv:e.target.value})} placeholder="CVV" required /></label></>}
+              {method === "BITCOIN" && <label className="field"><span>Referencia de transacción</span><input value={card.referencia_transaccion} onChange={(e) => setCard({...card,referencia_transaccion:e.target.value})} required /></label>}
+              <p className="checkout-disclaimer">Verifica la información antes de confirmar tu compra.</p>
             </section>
 
             {error && (
@@ -2195,7 +2216,7 @@ function Checkout({
               <strong>${total.toFixed(2)}</strong>
             </div>
             <p className="checkout-disclaimer">
-              La factura se generará al confirmar esta compra de demostración.
+              La factura se generará al confirmar tu compra.
             </p>
           </aside>
         </div>
@@ -2218,7 +2239,7 @@ function InvoicePage({
           <span className="invoice-success-icon">✓</span>
           <span className="eyebrow">LEVEL STORE</span>
           <h1>¡Compra completada!</h1>
-          <p>Tu compra de demostración se ha registrado correctamente.</p>
+          <p>Tu compra se ha registrado correctamente.</p>
         </div>
 
         <div className="invoice-details">
@@ -2259,7 +2280,7 @@ function InvoicePage({
         </div>
 
         <div className="invoice-total">
-          <span>Total pagado (simulado)</span>
+          <span>Total pagado</span>
           <strong>${invoice.total.toFixed(2)}</strong>
         </div>
 
@@ -2269,16 +2290,116 @@ function InvoicePage({
           </button>
         </div>
         <p className="invoice-footnote">
-          Documento de demostración. No representa un comprobante fiscal.
+          Gracias por comprar en LEVEL.
         </p>
       </section>
     </main>
   );
 }
 
+function MyInvoicesPage({
+  setView,
+  search,
+  setSearch,
+  onOpen,
+}: {
+  setView: (view: View) => void;
+  search: string;
+  setSearch: (value: string) => void;
+  onOpen: (id: number) => void;
+}) {
+  const [invoices, setInvoices] = useState<MyInvoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    getMyInvoices()
+      .then(setInvoices)
+      .catch(() => setError("No se pudieron cargar tus facturas."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="app-shell">
+      <Navbar setView={setView} search={search} setSearch={setSearch} />
+      <main className="invoice-page">
+        <section className="invoice-card">
+          <span className="eyebrow">HISTORIAL DE COMPRAS</span>
+          <h1>Mis facturas</h1>
+          <p className="muted">Consulta los comprobantes de las compras realizadas con tu cuenta.</p>
+          {loading && <p className="muted">Cargando facturas...</p>}
+          {error && <p className="seller-error">{error}</p>}
+          {!loading && !error && invoices.length === 0 && <p className="muted">Todavía no tienes facturas. Cuando completes una compra aparecerá aquí.</p>}
+          {!loading && invoices.map((invoice) => (
+            <div className="invoice-list-row" key={invoice.id_factura}>
+              <span><strong>{invoice.numero_factura}</strong><br />{new Date(invoice.fecha_emision).toLocaleString("es-SV")}</span>
+              <span>{invoice.cantidad_productos} producto{invoice.cantidad_productos === 1 ? "" : "s"}</span>
+              <strong>${Number(invoice.total).toFixed(2)}</strong>
+              <button className="secondary-button" type="button" onClick={() => onOpen(invoice.id_factura)}>Ver detalle</button>
+            </div>
+          ))}
+        </section>
+      </main>
+    </div>
+  );
+}
+
+function InvoiceDetailPage({
+  id,
+  setView,
+  search,
+  setSearch,
+}: {
+  id: number;
+  setView: (view: View) => void;
+  search: string;
+  setSearch: (value: string) => void;
+}) {
+  const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    getInvoiceDetail(id).then(setInvoice).catch(() => setError("No se pudo cargar el detalle de la factura."));
+  }, [id]);
+
+  return (
+    <div className="app-shell">
+      <Navbar setView={setView} search={search} setSearch={setSearch} />
+      <main className="invoice-page">
+        <section className="invoice-card">
+          <button className="back-button" type="button" onClick={() => setView("invoices")}>← Volver a mis facturas</button>
+          {error && <p className="seller-error">{error}</p>}
+          {!invoice && !error && <p className="muted">Cargando factura...</p>}
+          {invoice && <>
+            <div className="invoice-success">
+              <span className="eyebrow">FACTURA LEVEL</span>
+              <h1>{invoice.numero_factura}</h1>
+              <p>Emitida el {new Date(invoice.fecha_emision).toLocaleString("es-SV")}</p>
+            </div>
+            <div className="invoice-details">
+              <div><span>Comprador</span><strong>{invoice.nombre_facturacion || "No disponible"}</strong></div>
+              <div><span>Correo</span><strong>{invoice.correo_facturacion || "No disponible"}</strong></div>
+              <div><span>Dirección</span><strong>{invoice.direccion_facturacion || "No disponible"}</strong></div>
+              <div><span>Método de pago</span><strong>{invoice.metodo_pago}</strong></div>
+            </div>
+            <div className="invoice-products">
+              <h2>Detalle de compra</h2>
+              <div className="invoice-table-head"><span>Producto</span><span>Cant.</span><span>Precio</span><span>Importe</span></div>
+              {invoice.productos.map((item, index) => <div className="invoice-table-row" key={`${item.titulo}-${index}`}><span>{item.titulo}</span><span>{item.cantidad}</span><span>${Number(item.precio_unitario).toFixed(2)}</span><strong>${Number(item.subtotal).toFixed(2)}</strong></div>)}
+            </div>
+            <div className="invoice-total"><span>Total pagado</span><strong>${Number(invoice.total).toFixed(2)}</strong></div>
+            <p className="invoice-footnote">Gracias por comprar en LEVEL.</p>
+          </>}
+        </section>
+      </main>
+    </div>
+  );
+}
+
 export default function App() {
   const [view, setView] = useState<View>("login");
   const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
@@ -2507,7 +2628,7 @@ export default function App() {
     } catch (error) { alert("No se pudo actualizar el estado del usuario."); }
   }
 
-  async function completePurchase(method: "TARJETA" | "BITCOIN", reference: string) {
+  async function completePurchase(data: any) {
     if (cart.length === 0) return;
 
     const purchaseItems = cart.map((item) => ({
@@ -2523,7 +2644,7 @@ export default function App() {
       cart.map((item) => ({
         id_videojuego: item.game.id,
         cantidad: item.quantity,
-      })), method, reference,
+      })), data.method, data.reference, data.facturacion, data.pago_demo,
     );
 
     const purchaseId =
@@ -2600,6 +2721,10 @@ export default function App() {
         onLogout={handleLogout}
       />
     );
+  } else if (view === "invoices" && userRole === "COMPRADOR") {
+    page = <MyInvoicesPage setView={setView} search={search} setSearch={setSearch} onOpen={(id) => { setSelectedInvoiceId(id); setView("invoiceDetail"); }} />;
+  } else if (view === "invoiceDetail" && selectedInvoiceId && userRole === "COMPRADOR") {
+    page = <InvoiceDetailPage id={selectedInvoiceId} setView={setView} search={search} setSearch={setSearch} />;
   } else if (view === "admin" && userRole === "ADMINISTRADOR") {
     page = (
       <AdminDashboard
@@ -2629,6 +2754,7 @@ export default function App() {
         cart={cart}
         onBack={() => setView("home")}
         onConfirm={completePurchase}
+        profile={profile}
       />
     );
   } else if (view === "invoice" && invoice) {

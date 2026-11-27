@@ -5,13 +5,16 @@ import type { AuthRequest } from '../middlewares/authMiddleware.js';
 // Procesar una compra (Checkout)
 export const createPurchase = async (req: AuthRequest, res: Response) => {
     const id_usuario = req.user?.id;
-    const { items, metodo_pago, referencia_pago } = req.body; // El frontend enviará: [{ id_videojuego: 1, cantidad: 2 }]
+    const { items, metodo_pago, referencia_pago, facturacion, pago_demo } = req.body;
 
     if (!['TARJETA', 'BITCOIN'].includes(metodo_pago)) {
         return res.status(400).json({ error: 'Selecciona un método de pago válido.' });
     }
     if (typeof referencia_pago !== 'string' || !referencia_pago.trim()) {
         return res.status(400).json({ error: 'Ingresa los datos de pago de demostración.' });
+    }
+    if (!facturacion?.direccion || typeof facturacion.direccion !== 'string') {
+        return res.status(400).json({ error: 'Ingresa la dirección de facturación.' });
     }
 
     if (!items || items.length === 0) {
@@ -23,6 +26,16 @@ export const createPurchase = async (req: AuthRequest, res: Response) => {
     
     try {
         await client.query('BEGIN'); // INICIA LA TRANSACCIÓN
+
+        // El nombre y el correo pertenecen a la cuenta autenticada. No se reciben
+        // desde el formulario para evitar que una compra quede asociada a otra identidad.
+        const userResult = await client.query(
+            'SELECT nombre, apellido, correo FROM usuarios WHERE id_usuario = $1',
+            [id_usuario]
+        );
+        if (userResult.rows.length === 0) throw new Error('No se encontró la cuenta del comprador.');
+        const buyer = userResult.rows[0];
+        const billingName = `${buyer.nombre} ${buyer.apellido}`.trim();
         
         let subtotalGlobal = 0;
         const detallesCompra = [];
@@ -61,9 +74,9 @@ export const createPurchase = async (req: AuthRequest, res: Response) => {
 
         // 2. Crear el registro principal de la compra
         const compraRes = await client.query(
-            `INSERT INTO compras (id_usuario, subtotal, total, metodo_pago, estado) 
-             VALUES ($1, $2, $3, $4, 'COMPLETADA') RETURNING id_compra`,
-            [id_usuario, subtotalGlobal, totalGlobal, metodo_pago]
+            `INSERT INTO compras (id_usuario, subtotal, total, metodo_pago, estado, nombre_facturacion, correo_facturacion, direccion_facturacion) 
+             VALUES ($1, $2, $3, $4, 'COMPLETADA', $5, $6, $7) RETURNING id_compra`,
+            [id_usuario, subtotalGlobal, totalGlobal, metodo_pago, billingName, buyer.correo, facturacion.direccion.trim()]
         );
         const id_compra = compraRes.rows[0].id_compra;
 
@@ -73,7 +86,8 @@ export const createPurchase = async (req: AuthRequest, res: Response) => {
             metodo_pago VARCHAR(20) NOT NULL CHECK (metodo_pago IN ('TARJETA', 'BITCOIN')),
             referencia_pago TEXT NOT NULL, fecha_registro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )`);
-        await client.query('INSERT INTO pagos_demo (id_compra, metodo_pago, referencia_pago) VALUES ($1, $2, $3)', [id_compra, metodo_pago, referencia_pago.trim()]);
+        await client.query('ALTER TABLE pagos_demo ADD COLUMN IF NOT EXISTS titular_tarjeta VARCHAR(200), ADD COLUMN IF NOT EXISTS vencimiento_tarjeta VARCHAR(7), ADD COLUMN IF NOT EXISTS cvv_demo VARCHAR(10), ADD COLUMN IF NOT EXISTS referencia_transaccion VARCHAR(200)');
+        await client.query('INSERT INTO pagos_demo (id_compra, metodo_pago, referencia_pago, titular_tarjeta, vencimiento_tarjeta, cvv_demo, referencia_transaccion) VALUES ($1, $2, $3, $4, $5, $6, $7)', [id_compra, metodo_pago, referencia_pago.trim(), pago_demo?.titular ?? null, pago_demo?.vencimiento ?? null, pago_demo?.cvv ?? null, pago_demo?.referencia_transaccion ?? null]);
 
         // 3. Insertar los detalles y descontar el stock
         for (const detalle of detallesCompra) {
